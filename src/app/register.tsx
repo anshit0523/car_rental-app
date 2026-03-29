@@ -1,6 +1,9 @@
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import React, { useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -17,7 +20,80 @@ const WHITE = "#ffffff";
 const BLACK = "#000000";
 const BG = "#f8fafc";
 
+// Android emulator
+//const API_URL = "http://10.0.2.2:8000/api/register";
+
+// Real phone example
+ const API_URL = "http://192.168.8.182:8000/api/register";
+
 export default function RegisterScreen() {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordConfirmation, setPasswordConfirmation] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleRegister = async () => {
+    if (!name.trim() || !email.trim() || !password.trim() || !passwordConfirmation.trim()) {
+      Alert.alert("Missing fields", "Please fill in all required fields.");
+      return;
+    }
+
+    if (password !== passwordConfirmation) {
+      Alert.alert("Password mismatch", "Password and confirm password do not match.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name,
+          email,
+          phone,
+          password,
+          password_confirmation: passwordConfirmation,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data.errors) {
+          const firstError = Object.values(data.errors)[0];
+          const errorMessage = Array.isArray(firstError)
+            ? firstError[0]
+            : "Validation error.";
+          Alert.alert("Register failed", errorMessage);
+        } else {
+          Alert.alert("Register failed", data.message || "Something went wrong.");
+        }
+        return;
+      }
+
+      Alert.alert("Success", data.message || "Registration successful");
+
+      console.log("Registered user:", data.user);
+
+      router.push("/login");
+    } catch (error) {
+      console.log("Register error:", error);
+      Alert.alert(
+        "Connection error",
+        "Could not connect to the server. Check your API URL and Laravel server."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView
@@ -48,6 +124,8 @@ export default function RegisterScreen() {
               <TextInput
                 placeholder="Enter your name"
                 placeholderTextColor="#9ca3af"
+                value={name}
+                onChangeText={setName}
                 style={styles.input}
               />
             </View>
@@ -59,6 +137,9 @@ export default function RegisterScreen() {
                 placeholderTextColor="#9ca3af"
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoCorrect={false}
+                value={email}
+                onChangeText={setEmail}
                 style={styles.input}
               />
             </View>
@@ -69,6 +150,8 @@ export default function RegisterScreen() {
                 placeholder="Enter your phone number"
                 placeholderTextColor="#9ca3af"
                 keyboardType="phone-pad"
+                value={phone}
+                onChangeText={setPhone}
                 style={styles.input}
               />
             </View>
@@ -79,6 +162,8 @@ export default function RegisterScreen() {
                 placeholder="Create a password"
                 placeholderTextColor="#9ca3af"
                 secureTextEntry
+                value={password}
+                onChangeText={setPassword}
                 style={styles.input}
               />
             </View>
@@ -89,12 +174,22 @@ export default function RegisterScreen() {
                 placeholder="Confirm your password"
                 placeholderTextColor="#9ca3af"
                 secureTextEntry
+                value={passwordConfirmation}
+                onChangeText={setPasswordConfirmation}
                 style={styles.input}
               />
             </View>
 
-            <TouchableOpacity style={styles.registerButton}>
-              <Text style={styles.registerButtonText}>Register</Text>
+            <TouchableOpacity
+              style={[styles.registerButton, loading && styles.disabledButton]}
+              onPress={handleRegister}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color={WHITE} />
+              ) : (
+                <Text style={styles.registerButtonText}>Register</Text>
+              )}
             </TouchableOpacity>
 
             <View style={styles.footerRow}>
@@ -142,8 +237,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   logoImage: {
-    width: 200,
-    height: 120,
+    width: 140,
+    height: 80,
     alignSelf: "center",
   },
   title: {
@@ -161,7 +256,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   formGroup: {
-    marginBottom: 10,
+    marginBottom: 12,
   },
   label: {
     color: WHITE,
@@ -185,6 +280,11 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     marginTop: 12,
     alignItems: "center",
+    justifyContent: "center",
+    minHeight: 48,
+  },
+  disabledButton: {
+    opacity: 0.7,
   },
   registerButtonText: {
     color: WHITE,
