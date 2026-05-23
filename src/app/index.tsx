@@ -1,6 +1,10 @@
-import { Link } from "expo-router";
+import { useEffect, useState } from "react";
+import { Link, router } from "expo-router";
+import { API_URL } from "../lib/api/config";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
+  ActivityIndicator,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -8,6 +12,31 @@ import {
 } from "react-native";
 
 export default function WelcomeScreen() {
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  const checkAuth = async () => {
+    const token = await AsyncStorage.getItem("auth_token");
+
+    if (token) {
+      router.replace("/(tabs)/browse");
+      return;
+    }
+
+    setChecking(false);
+  };
+
+  if (checking) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#F97316" />
+      </View>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.hero}>
@@ -41,7 +70,7 @@ export default function WelcomeScreen() {
           </TouchableOpacity>
         </Link>
 
-        <Link href="/(tabs)/home" asChild>
+        <Link href="/(tabs)/browse" asChild>
           <TouchableOpacity>
             <Text style={styles.guestText}>Continue as Guest</Text>
           </TouchableOpacity>
@@ -55,6 +84,12 @@ const ORANGE = "#F97316";
 const DARK = "#0F172A";
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: "#FFF7ED",
+    justifyContent: "center",
+    alignItems: "center",
+  },
   container: {
     flex: 1,
     backgroundColor: "#FFF7ED",
@@ -73,10 +108,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 22,
-    shadowColor: "#000",
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 4,
   },
   logoText: {
     color: "#FFFFFF",

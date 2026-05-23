@@ -1,209 +1,269 @@
-import { router } from "expo-router";
+import { useState } from "react";
+import { router, Link } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import React, { useState } from "react";
 import {
   Alert,
-  Image,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from "react-native";
-
-const ORANGE = "#ff6a00";
-const WHITE = "#ffffff";
-const BLACK = "#000000";
-const BG = "#f8fafc";
+import { API_URL } from "../lib/api/config";
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState("customer@example.com");
-  const [password, setPassword] = useState("password");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = () => {
-    Alert.alert("Static Login", "Login UI only. No API connected yet.");
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert("Missing Fields", "Please enter your email and password.");
+      return;
+    }
 
-    // Change this route depending on your current app route.
-    // If you use bottom tabs, use "/(tabs)/home".
-    router.push("/(tabs)/home");
+    try {
+      setLoading(true);
+
+      const response = await fetch(`${API_URL}/user/login`, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        Alert.alert("Login Failed", data.message || "Invalid login credentials.");
+        return;
+      }
+
+      await AsyncStorage.setItem("auth_token", data.token);
+      await AsyncStorage.setItem("auth_user", JSON.stringify(data.user));
+
+      router.replace("/(tabs)/browse");
+    } catch (error) {
+      Alert.alert("Connection Error", "Unable to connect to the server.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
-        style={styles.flex}
+        style={styles.wrapper}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <ScrollView
-          contentContainerStyle={styles.wrapper}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.card}>
-            <View style={styles.logoWrap}>
-              <Image
-                source={require("../../assets/images/logo.png")}
-                style={styles.logoImage}
-                resizeMode="contain"
-              />
-            </View>
+        <View>
+          <View style={styles.logoCircle}>
+            <Text style={styles.logoText}>EZE</Text>
+          </View>
 
-            <Text style={styles.subtitle}>
-              Sign in to your Dumaguete EZE Car Rental account
-            </Text>
+          <Text style={styles.title}>Welcome Back</Text>
+          <Text style={styles.subtitle}>
+            Login to browse cars, manage bookings, and track rentals.
+          </Text>
 
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Email Address</Text>
+          <View style={styles.form}>
+            <Text style={styles.label}>Email</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your email"
+              placeholderTextColor="#94A3B8"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={email}
+              onChangeText={setEmail}
+            />
+
+            <Text style={styles.label}>Password</Text>
+            <View style={styles.passwordWrapper}>
               <TextInput
-                placeholder="Enter your email"
-                placeholderTextColor="#9ca3af"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                value={email}
-                onChangeText={setEmail}
-                style={styles.input}
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Password</Text>
-              <TextInput
+                style={styles.passwordInput}
                 placeholder="Enter your password"
-                placeholderTextColor="#9ca3af"
-                secureTextEntry
+                placeholderTextColor="#94A3B8"
+                secureTextEntry={!showPassword}
                 value={password}
                 onChangeText={setPassword}
-                style={styles.input}
               />
-            </View>
 
-            <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-              <Text style={styles.loginButtonText}>Sign In</Text>
-            </TouchableOpacity>
-
-            <View style={styles.footerRow}>
-              <Text style={styles.footerText}>Don’t have an account? </Text>
-
-              <TouchableOpacity onPress={() => router.push("/register")}>
-                <Text style={styles.footerLink}>Create Account</Text>
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                style={styles.eyeButton}
+              >
+                <Ionicons
+                  name={showPassword ? "eye-off-outline" : "eye-outline"}
+                  size={22}
+                  color="#64748B"
+                />
               </TouchableOpacity>
             </View>
 
             <TouchableOpacity
+              style={[styles.loginButton, loading && styles.disabledButton]}
+              onPress={handleLogin}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.loginButtonText}>Login</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
               style={styles.guestButton}
-              onPress={() => router.push("/(tabs)/home")}
+              onPress={() => router.push("/(tabs)/browse")}
             >
               <Text style={styles.guestText}>Continue as Guest</Text>
             </TouchableOpacity>
           </View>
-        </ScrollView>
+        </View>
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Don't have an account?</Text>
+          <Link href="/register" asChild>
+            <TouchableOpacity>
+              <Text style={styles.registerText}> Create Account</Text>
+            </TouchableOpacity>
+          </Link>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
+const ORANGE = "#F97316";
+const DARK = "#0F172A";
+
 const styles = StyleSheet.create({
-  flex: {
+  container: {
     flex: 1,
-  },
-  safe: {
-    flex: 1,
-    backgroundColor: BG,
+    backgroundColor: "#FFF7ED",
   },
   wrapper: {
-    flexGrow: 1,
-    justifyContent: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 24,
+    flex: 1,
+    padding: 24,
+    justifyContent: "space-between",
   },
-  card: {
-    width: "100%",
+  logoCircle: {
+    width: 78,
+    height: 78,
+    borderRadius: 39,
     backgroundColor: ORANGE,
-    borderRadius: 24,
-    paddingVertical: 36,
-    paddingHorizontal: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.25,
-    shadowRadius: 30,
-    elevation: 10,
-  },
-  logoWrap: {
     alignItems: "center",
-    marginBottom: 12,
+    justifyContent: "center",
+    marginTop: 24,
+    marginBottom: 24,
   },
-  logoImage: {
-    width: 140,
-    height: 80,
-    alignSelf: "center",
+  logoText: {
+    color: "#FFFFFF",
+    fontSize: 23,
+    fontWeight: "900",
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: "900",
+    color: DARK,
+    marginBottom: 8,
   },
   subtitle: {
-    textAlign: "center",
-    fontSize: 14,
-    color: WHITE,
-    marginBottom: 26,
-    lineHeight: 20,
+    fontSize: 15,
+    color: "#64748B",
+    lineHeight: 22,
+    marginBottom: 28,
   },
-  formGroup: {
-    marginBottom: 12,
+  form: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "#FED7AA",
   },
   label: {
-    color: WHITE,
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: "800",
+    color: DARK,
     marginBottom: 8,
-    fontWeight: "500",
   },
   input: {
-    backgroundColor: WHITE,
+    height: 52,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    color: BLACK,
-    fontSize: 14,
+    borderColor: "#E2E8F0",
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    fontSize: 15,
+    color: DARK,
+    marginBottom: 16,
+    backgroundColor: "#FFFFFF",
+  },
+  passwordWrapper: {
+    height: 52,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    marginBottom: 16,
+    backgroundColor: "#FFFFFF",
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  passwordInput: {
+    flex: 1,
+    fontSize: 15,
+    color: DARK,
+  },
+  eyeButton: {
+    paddingLeft: 10,
   },
   loginButton: {
-    backgroundColor: WHITE,
-    borderRadius: 12,
-    paddingVertical: 14,
-    marginTop: 12,
+    height: 54,
+    borderRadius: 18,
+    backgroundColor: ORANGE,
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 48,
+    marginTop: 4,
+  },
+  disabledButton: {
+    opacity: 0.7,
   },
   loginButtonText: {
-    color: ORANGE,
-    fontWeight: "700",
-    fontSize: 15,
-  },
-  footerRow: {
-    marginTop: 20,
-    flexDirection: "row",
-    justifyContent: "center",
-    flexWrap: "wrap",
-  },
-  footerText: {
-    color: BLACK,
-    fontSize: 14,
-  },
-  footerLink: {
-    color: WHITE,
-    fontSize: 14,
-    fontWeight: "600",
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "900",
   },
   guestButton: {
     marginTop: 16,
     alignItems: "center",
   },
   guestText: {
-    color: WHITE,
-    fontSize: 14,
+    color: "#64748B",
+    fontWeight: "800",
+  },
+  footer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    paddingBottom: 12,
+  },
+  footerText: {
+    color: "#64748B",
     fontWeight: "700",
-    textDecorationLine: "underline",
+  },
+  registerText: {
+    color: ORANGE,
+    fontWeight: "900",
   },
 });
