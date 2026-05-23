@@ -2,7 +2,6 @@ import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Image,
   KeyboardAvoidingView,
@@ -20,59 +19,16 @@ const WHITE = "#ffffff";
 const BLACK = "#000000";
 const BG = "#f8fafc";
 
-// CHANGE THIS depending on your device
-//const API_URL = "http://10.0.2.2:8000/api/login";
-const API_URL = "http://192.168.8.182:8000/api/login"; // real phone example
-
 export default function LoginScreen() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("customer@example.com");
+  const [password, setPassword] = useState("password");
 
-  const handleLogin = async () => {
-    if (!email.trim() || !password.trim()) {
-      Alert.alert("Missing fields", "Please enter your email and password.");
-      return;
-    }
+  const handleLogin = () => {
+    Alert.alert("Static Login", "Login UI only. No API connected yet.");
 
-    try {
-      setLoading(true);
-
-      const response = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          password,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        Alert.alert("Login failed", data.message || "Something went wrong.");
-        return;
-      }
-
-      Alert.alert("Success", data.message || "Login successful");
-
-      // optional: inspect returned user
-      console.log("Logged in user:", data.user);
-
-      // navigate after login
-      router.push("/dashboard");
-    } catch (error) {
-      console.log("Login error:", error);
-      Alert.alert(
-        "Connection error",
-        "Could not connect to the server. Check your API URL and Laravel server."
-      );
-    } finally {
-      setLoading(false);
-    }
+    // Change this route depending on your current app route.
+    // If you use bottom tabs, use "/(tabs)/home".
+    router.push("/(tabs)/home");
   };
 
   return (
@@ -125,24 +81,24 @@ export default function LoginScreen() {
               />
             </View>
 
-            <TouchableOpacity
-              style={[styles.loginButton, loading && styles.disabledButton]}
-              onPress={handleLogin}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color={ORANGE} />
-              ) : (
-                <Text style={styles.loginButtonText}>Sign In</Text>
-              )}
+            <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+              <Text style={styles.loginButtonText}>Sign In</Text>
             </TouchableOpacity>
 
             <View style={styles.footerRow}>
               <Text style={styles.footerText}>Don’t have an account? </Text>
+
               <TouchableOpacity onPress={() => router.push("/register")}>
                 <Text style={styles.footerLink}>Create Account</Text>
               </TouchableOpacity>
             </View>
+
+            <TouchableOpacity
+              style={styles.guestButton}
+              onPress={() => router.push("/(tabs)/home")}
+            >
+              <Text style={styles.guestText}>Continue as Guest</Text>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -220,9 +176,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     minHeight: 48,
   },
-  disabledButton: {
-    opacity: 0.7,
-  },
   loginButtonText: {
     color: ORANGE,
     fontWeight: "700",
@@ -242,5 +195,15 @@ const styles = StyleSheet.create({
     color: WHITE,
     fontSize: 14,
     fontWeight: "600",
+  },
+  guestButton: {
+    marginTop: 16,
+    alignItems: "center",
+  },
+  guestText: {
+    color: WHITE,
+    fontSize: 14,
+    fontWeight: "700",
+    textDecorationLine: "underline",
   },
 });
