@@ -1,5 +1,5 @@
-import { Ionicons } from '@expo/vector-icons';
-import { Link } from 'expo-router';
+import { Ionicons } from "@expo/vector-icons";
+import { Link, router } from "expo-router";
 import {
   SafeAreaView,
   ScrollView,
@@ -7,16 +7,19 @@ import {
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
+} from "react-native";
 
-const ORANGE = '#F97316';
-const DARK = '#0F172A';
-const MUTED = '#64748B';
+const ORANGE = "#F97316";
+const DARK = "#0F172A";
+const MUTED = "#64748B";
 
 export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.container}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.container}
+      >
         <View style={styles.header}>
           <Text style={styles.title}>Profile</Text>
           <TouchableOpacity style={styles.settingsButton}>
@@ -57,7 +60,9 @@ export default function ProfileScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.infoLabel}>Address</Text>
-              <Text style={styles.infoValue}>Dumaguete City, Negros Oriental</Text>
+              <Text style={styles.infoValue}>
+                Dumaguete City, Negros Oriental
+              </Text>
             </View>
           </View>
         </View>
@@ -65,11 +70,32 @@ export default function ProfileScreen() {
         <Text style={styles.sectionTitleOutside}>Menu</Text>
 
         <View style={styles.menuCard}>
-          <MenuItem icon="notifications-outline" title="Notifications" subtitle="View booking updates" />
-          <MenuItem icon="receipt-outline" title="Receipts" subtitle="View payment receipts" />
-          <MenuItem icon="shield-checkmark-outline" title="Security" subtitle="Change password" />
-          <MenuItem icon="help-circle-outline" title="Help & Support" subtitle="Contact rental support" />
-          <MenuItem icon="information-circle-outline" title="About" subtitle="About Dumaguete EZE" />
+          <MenuItem
+            icon="notifications-outline"
+            title="Notifications"
+            subtitle="View booking updates"
+          />
+          <MenuItem
+            icon="receipt-outline"
+            title="Receipts"
+            subtitle="View payment receipts"
+          />
+          <MenuItem
+            icon="shield-checkmark-outline"
+            title="Security"
+            subtitle="Change password"
+            onPress={() => router.push("/change-password")}
+          />
+          <MenuItem
+            icon="help-circle-outline"
+            title="Help & Support"
+            subtitle="Contact rental support"
+          />
+          <MenuItem
+            icon="information-circle-outline"
+            title="About"
+            subtitle="About Dumaguete EZE"
+          />
         </View>
 
         <TouchableOpacity style={styles.logoutButton}>
@@ -91,13 +117,15 @@ function MenuItem({
   icon,
   title,
   subtitle,
+  onPress,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
   subtitle: string;
+  onPress?: () => void;
 }) {
   return (
-    <TouchableOpacity style={styles.menuItem}>
+    <TouchableOpacity style={styles.menuItem} onPress={onPress}>
       <View style={styles.menuIcon}>
         <Ionicons name={icon} size={21} color={ORANGE} />
       </View>
@@ -115,62 +143,62 @@ function MenuItem({
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: "#F8FAFC",
   },
   container: {
     padding: 20,
     paddingBottom: 90,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   title: {
     color: DARK,
     fontSize: 28,
-    fontWeight: '900',
+    fontWeight: "900",
   },
   settingsButton: {
     width: 46,
     height: 46,
     borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: "#E2E8F0",
   },
   profileCard: {
     marginTop: 22,
     backgroundColor: ORANGE,
     borderRadius: 28,
     padding: 24,
-    alignItems: 'center',
+    alignItems: "center",
   },
   avatar: {
     width: 86,
     height: 86,
     borderRadius: 43,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 14,
   },
   avatarText: {
     color: ORANGE,
     fontSize: 34,
-    fontWeight: '900',
+    fontWeight: "900",
   },
   name: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 22,
-    fontWeight: '900',
+    fontWeight: "900",
   },
   email: {
-    color: '#FFEDD5',
+    color: "#FFEDD5",
     marginTop: 4,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   editButton: {
     marginTop: 16,
@@ -178,81 +206,81 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 18,
     borderRadius: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 7,
   },
   editButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '900',
+    color: "#FFFFFF",
+    fontWeight: "900",
   },
   infoCard: {
     marginTop: 18,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 24,
     padding: 18,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: "#E2E8F0",
   },
   sectionTitle: {
     color: DARK,
     fontSize: 17,
-    fontWeight: '900',
+    fontWeight: "900",
     marginBottom: 14,
   },
   sectionTitleOutside: {
     color: DARK,
     fontSize: 18,
-    fontWeight: '900',
+    fontWeight: "900",
     marginTop: 24,
     marginBottom: 12,
   },
   infoRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 14,
   },
   infoIcon: {
     width: 44,
     height: 44,
     borderRadius: 15,
-    backgroundColor: '#FFF7ED',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#FFF7ED",
+    alignItems: "center",
+    justifyContent: "center",
   },
   infoLabel: {
     color: MUTED,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   infoValue: {
     color: DARK,
     fontSize: 14,
-    fontWeight: '900',
+    fontWeight: "900",
     marginTop: 2,
   },
   menuCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    overflow: 'hidden',
+    borderColor: "#E2E8F0",
+    overflow: "hidden",
   },
   menuItem: {
     padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: "#F1F5F9",
   },
   menuIcon: {
     width: 44,
     height: 44,
     borderRadius: 15,
-    backgroundColor: '#FFF7ED',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#FFF7ED",
+    alignItems: "center",
+    justifyContent: "center",
   },
   menuInfo: {
     flex: 1,
@@ -260,7 +288,7 @@ const styles = StyleSheet.create({
   },
   menuTitle: {
     color: DARK,
-    fontWeight: '900',
+    fontWeight: "900",
     fontSize: 15,
   },
   menuSubtitle: {
@@ -270,25 +298,25 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     marginTop: 18,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: "#FEF2F2",
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: "#FECACA",
     borderRadius: 18,
     paddingVertical: 15,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     gap: 8,
   },
   logoutText: {
-    color: '#DC2626',
-    fontWeight: '900',
+    color: "#DC2626",
+    fontWeight: "900",
     fontSize: 15,
   },
   backHome: {
     marginTop: 16,
-    textAlign: 'center',
+    textAlign: "center",
     color: MUTED,
-    fontWeight: '800',
+    fontWeight: "800",
   },
 });

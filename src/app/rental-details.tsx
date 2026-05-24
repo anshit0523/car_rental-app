@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Linking,
   Modal,
   SafeAreaView,
   ScrollView,
@@ -106,6 +107,34 @@ export default function RentalDetailsScreen() {
       setCancelLoading(false);
     }
   };
+
+const needHelp = () => {
+  Alert.alert(
+    "Need Help?",
+    "Contact Dumaguete EZE Car Rental support.",
+    [
+      {
+        text: "Call SMART/TNT",
+        onPress: () => Linking.openURL("tel:09812255442"),
+      },
+      {
+        text: "Call TM/GLOBE",
+        onPress: () => Linking.openURL("tel:09552603041"),
+      },
+      {
+        text: "Message SMART/TNT",
+        onPress: () => Linking.openURL("sms:09812255442"),
+      },
+      {
+        text: "Exit",
+        style: "cancel",
+      },
+    ],
+    {
+      cancelable: true,
+    }
+  );
+};
 
   const formatMoney = (value?: number) => {
     return `₱${Number(value || 0).toLocaleString()}`;
@@ -393,7 +422,7 @@ export default function RentalDetailsScreen() {
           </View>
         )}
 
-        <TouchableOpacity style={styles.helpButton}>
+        <TouchableOpacity style={styles.helpButton} onPress={needHelp}>
           <Text style={styles.helpButtonText}>Need Help?</Text>
         </TouchableOpacity>
       </ScrollView>
