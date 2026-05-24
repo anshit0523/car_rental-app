@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Modal,
   RefreshControl,
   SafeAreaView,
   ScrollView,
@@ -41,6 +42,12 @@ type PendingPayment = {
   };
 };
 
+type SelectedReceipt = {
+  uri: string;
+  name: string;
+  type: string;
+};
+
 export default function PaymentsScreen() {
   const [payments, setPayments] = useState<PendingPayment[]>([]);
   const [paymentSetting, setPaymentSetting] = useState<any>(null);
@@ -48,6 +55,8 @@ export default function PaymentsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [uploadingId, setUploadingId] = useState<number | null>(null);
   const [selectedMethod, setSelectedMethod] = useState<"gcash" | "bank">("gcash");
+  const [selectedReceipts, setSelectedReceipts] = useState<Record<number, SelectedReceipt>>({});
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   useEffect(() => {
     fetchPayments();
@@ -86,32 +95,50 @@ export default function PaymentsScreen() {
     fetchPayments();
   };
 
-  const pickAndUploadReceipt = async (payment: PendingPayment) => {
+  const pickReceipt = async (payment: PendingPayment) => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permission.granted) {
+      Alert.alert("Permission Required", "Please allow access to your photos.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+    });
+
+    if (result.canceled) return;
+
+    const asset = result.assets[0];
+
+    setSelectedReceipts((prev) => ({
+      ...prev,
+      [payment.id]: {
+        uri: asset.uri,
+        name: asset.fileName || `receipt-${payment.booking_id}.jpg`,
+        type: asset.mimeType || "image/jpeg",
+      },
+    }));
+  };
+
+  const uploadReceipt = async (payment: PendingPayment) => {
+    const receipt = selectedReceipts[payment.id];
+
+    if (!receipt) {
+      Alert.alert("No Receipt Selected", "Please select a receipt image first.");
+      return;
+    }
+
     try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (!permission.granted) {
-        Alert.alert("Permission Required", "Please allow access to your photos.");
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        quality: 0.8,
-      });
-
-      if (result.canceled) return;
-
-      const asset = result.assets[0];
-
       const formData = new FormData();
 
       formData.append("booking_id", String(payment.booking_id));
       formData.append("payment_method", selectedMethod);
       formData.append("receipt_image", {
-        uri: asset.uri,
-        name: asset.fileName || `receipt-${payment.booking_id}.jpg`,
-        type: asset.mimeType || "image/jpeg",
+        uri: receipt.uri,
+        name: receipt.name,
+        type: receipt.type,
       } as any);
 
       const token = await AsyncStorage.getItem("auth_token");
@@ -135,12 +162,30 @@ export default function PaymentsScreen() {
       }
 
       Alert.alert("Success", "Receipt uploaded successfully.");
+
+      setSelectedReceipts((prev) => {
+        const copy = { ...prev };
+        delete copy[payment.id];
+        return copy;
+      });
+
+      setPreviewImage(null);
       fetchPayments();
     } catch (error) {
       Alert.alert("Error", "Unable to upload receipt.");
     } finally {
       setUploadingId(null);
     }
+  };
+
+  const removeReceipt = (paymentId: number) => {
+    setSelectedReceipts((prev) => {
+      const copy = { ...prev };
+      delete copy[paymentId];
+      return copy;
+    });
+
+    setPreviewImage(null);
   };
 
   const formatAmount = (amount: number) => {
@@ -189,7 +234,7 @@ export default function PaymentsScreen() {
         <View style={styles.infoCard}>
           <Ionicons name="information-circle-outline" size={24} color={ORANGE} />
           <Text style={styles.infoText}>
-            Upload your payment receipt after booking. Admin or staff will verify your payment.
+            Select and review your receipt before uploading. Admin or staff will verify your payment.
           </Text>
         </View>
 
@@ -236,6 +281,7 @@ export default function PaymentsScreen() {
             {payments.map((payment) => {
               const car = payment.booking?.car;
               const carName = `${car?.brand?.name || ""} ${car?.model || ""}`.trim();
+              const selectedReceipt = selectedReceipts[payment.id];
 
               return (
                 <View key={payment.id} style={styles.paymentCard}>
@@ -268,30 +314,60 @@ export default function PaymentsScreen() {
                     </Text>
                   </View>
 
-                  <TouchableOpacity
-                    style={styles.uploadBox}
-                    onPress={() => pickAndUploadReceipt(payment)}
-                    disabled={uploadingId === payment.id}
-                  >
-                    {uploadingId === payment.id ? (
-                      <ActivityIndicator color={ORANGE} />
-                    ) : (
-                      <>
-                        <Ionicons name="cloud-upload-outline" size={34} color={ORANGE} />
-                        <Text style={styles.uploadTitle}>Upload Receipt</Text>
-                        <Text style={styles.uploadText}>Tap to choose image from your device</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
+                  {!selectedReceipt ? (
+                    <TouchableOpacity
+                      style={styles.uploadBox}
+                      onPress={() => pickReceipt(payment)}
+                      disabled={uploadingId === payment.id}
+                    >
+                      <Ionicons name="image-outline" size={34} color={ORANGE} />
+                      <Text style={styles.uploadTitle}>Select Receipt</Text>
+                      <Text style={styles.uploadText}>Choose image first before uploading</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.previewBox}>
+                      <TouchableOpacity onPress={() => setPreviewImage(selectedReceipt.uri)}>
+                        <Image source={{ uri: selectedReceipt.uri }} style={styles.previewImage} />
+                      </TouchableOpacity>
+
+                      <View style={styles.previewHint}>
+                        <Ionicons name="expand-outline" size={15} color={MUTED} />
+                        <Text style={styles.previewHintText}>Tap image to preview full screen</Text>
+                      </View>
+
+                      <View style={styles.previewActions}>
+                        <TouchableOpacity
+                          style={styles.changeButton}
+                          onPress={() => pickReceipt(payment)}
+                          disabled={uploadingId === payment.id}
+                        >
+                          <Text style={styles.changeButtonText}>Change Image</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={styles.removeButton}
+                          onPress={() => removeReceipt(payment.id)}
+                          disabled={uploadingId === payment.id}
+                        >
+                          <Text style={styles.removeButtonText}>Remove</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
 
                   <TouchableOpacity
-                    style={styles.payButton}
-                    onPress={() => pickAndUploadReceipt(payment)}
-                    disabled={uploadingId === payment.id}
+                    style={[
+                      styles.payButton,
+                      (!selectedReceipt || uploadingId === payment.id) && styles.disabledButton,
+                    ]}
+                    onPress={() => uploadReceipt(payment)}
+                    disabled={!selectedReceipt || uploadingId === payment.id}
                   >
-                    <Text style={styles.payButtonText}>
-                      {uploadingId === payment.id ? "Uploading..." : "Select Receipt"}
-                    </Text>
+                    {uploadingId === payment.id ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.payButtonText}>Upload Receipt</Text>
+                    )}
                   </TouchableOpacity>
                 </View>
               );
@@ -333,6 +409,25 @@ export default function PaymentsScreen() {
           </View>
         </View>
       </ScrollView>
+
+      <Modal visible={!!previewImage} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalClose}
+            onPress={() => setPreviewImage(null)}
+          >
+            <Ionicons name="close" size={30} color="#FFFFFF" />
+          </TouchableOpacity>
+
+          {previewImage && (
+            <Image
+              source={{ uri: previewImage }}
+              style={styles.modalImage}
+              resizeMode="contain"
+            />
+          )}
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -503,12 +598,68 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 3,
   },
+  previewBox: {
+    marginTop: 16,
+    borderRadius: 20,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    backgroundColor: "#FFFFFF",
+  },
+  previewImage: {
+    width: "100%",
+    height: 190,
+  },
+  previewHint: {
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  previewHintText: {
+    color: MUTED,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  previewActions: {
+    flexDirection: "row",
+    gap: 10,
+    padding: 12,
+  },
+  changeButton: {
+    flex: 1,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: "#FFF7ED",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  changeButtonText: {
+    color: ORANGE,
+    fontWeight: "900",
+  },
+  removeButton: {
+    flex: 1,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: "#FEE2E2",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  removeButtonText: {
+    color: "#DC2626",
+    fontWeight: "900",
+  },
   payButton: {
     marginTop: 14,
     backgroundColor: ORANGE,
     paddingVertical: 14,
     borderRadius: 16,
     alignItems: "center",
+  },
+  disabledButton: {
+    opacity: 0.55,
   },
   payButtonText: {
     color: "#FFFFFF",
@@ -580,5 +731,27 @@ const styles = StyleSheet.create({
     color: ORANGE,
     fontSize: 13,
     fontWeight: "900",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.92)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalClose: {
+    position: "absolute",
+    top: 55,
+    right: 24,
+    zIndex: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalImage: {
+    width: "94%",
+    height: "82%",
   },
 });
