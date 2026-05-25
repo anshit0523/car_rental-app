@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -42,19 +42,31 @@ export default function RewardsScreen() {
     return await AsyncStorage.getItem("auth_token");
   };
 
-  const fetchRewards = async (selectedFilter: FilterType = filter) => {
+  const getType = (item: Transaction): FilterType => {
+    const note = (item.note || "").toLowerCase();
+
+    if (note.includes("returned")) return "returned";
+    if (note.includes("manual")) return "manual";
+    if (item.points_change > 0) return "earned";
+
+    return "redeemed";
+  };
+
+  const filteredTransactions = useMemo(() => {
+    if (filter === "all") return transactions;
+    return transactions.filter((item) => getType(item) === filter);
+  }, [filter, transactions]);
+
+  const fetchRewards = async () => {
     try {
       const token = await getToken();
 
-      const response = await fetch(
-        `${API_URL}/rewards?filter=${selectedFilter}`,
-        {
-          headers: {
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await fetch(`${API_URL}/rewards?filter=all`, {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       const data = await response.json();
 
@@ -72,22 +84,22 @@ export default function RewardsScreen() {
   };
 
   useEffect(() => {
-    fetchRewards(filter);
-  }, [filter]);
+    fetchRewards();
+  }, []);
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchRewards(filter);
+    fetchRewards();
   };
 
-  const getType = (item: Transaction) => {
-    const note = (item.note || "").toLowerCase();
+  const getTypeLabel = (item: Transaction) => {
+    const type = getType(item);
 
-    if (note.includes("returned")) return "Returned";
-    if (note.includes("manual")) return "Manual";
-    if (item.points_change > 0) return "Earned";
+    if (type === "earned") return "Earned";
+    if (type === "redeemed") return "Redeemed";
+    if (type === "returned") return "Returned";
 
-    return "Redeemed";
+    return "Manual";
   };
 
   const getTypeStyle = (type: string) => {
@@ -216,9 +228,7 @@ export default function RewardsScreen() {
             </Text>
           </View>
 
-          <View style={styles.historyHeader}>
-            <Text style={styles.sectionTitle}>Points History</Text>
-          </View>
+          <Text style={styles.sectionTitle}>Points History</Text>
 
           <ScrollView
             horizontal
@@ -232,10 +242,7 @@ export default function RewardsScreen() {
                   styles.filterChip,
                   filter === item.value && styles.filterChipActive,
                 ]}
-                onPress={() => {
-                  setLoading(true);
-                  setFilter(item.value);
-                }}
+                onPress={() => setFilter(item.value)}
               >
                 <Text
                   style={[
@@ -257,17 +264,17 @@ export default function RewardsScreen() {
             <Text style={[styles.tableHeadText, { flex: 1 }]}>BALANCE</Text>
           </View>
 
-          {transactions.length === 0 ? (
+          {filteredTransactions.length === 0 ? (
             <View style={styles.emptyCard}>
               <Ionicons name="star-outline" size={42} color={ORANGE} />
               <Text style={styles.emptyTitle}>No points history yet</Text>
               <Text style={styles.emptyText}>
-                Your earned and redeemed points will appear here.
+                No {filter === "all" ? "" : filter} transactions found.
               </Text>
             </View>
           ) : (
-            transactions.map((item) => {
-              const type = getType(item);
+            filteredTransactions.map((item) => {
+              const type = getTypeLabel(item);
               const typeStyle = getTypeStyle(type);
               const date = formatDate(item.created_at);
               const isPositive = item.points_change > 0;

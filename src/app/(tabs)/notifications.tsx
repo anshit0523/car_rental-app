@@ -148,6 +148,15 @@ export default function NotificationsScreen() {
         return;
       }
 
+      if (
+        lowerLink.includes("rewards") ||
+        lowerLink.includes("points") ||
+        lowerLink.includes("reward")
+      ) {
+        router.push("/rewards");
+        return;
+      }
+
       if (paymentId) {
         router.push({
           pathname: "/(tabs)/payments",
