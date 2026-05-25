@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Modal,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -22,6 +23,18 @@ const ORANGE = "#F97316";
 const DARK = "#0F172A";
 const MUTED = "#64748B";
 const GREEN = "#16A34A";
+
+const TERMS = [
+  "Renter agrees to pay the basic rental fee plus additional charges for excess hours, if any.",
+  "Vehicle must be returned on the agreed return date/time in the same condition, minus normal wear and tear.",
+  "Vehicle must be returned with the agreed fuel expectation as stated by the owner.",
+  "Vehicle is allowed only within the approved area/location. Taking it elsewhere without owner consent has a ₱5,000 penalty.",
+  "Renter must have a valid legal driver’s license and declares no outstanding issues against the license.",
+  "Only the renter and any approved/authorized driver listed may drive the vehicle.",
+  "Vehicle may be used only for routine, legal purposes and must follow all Philippine laws and rules.",
+  "Renter is responsible for any damages and cleaning fees incurred during the rental period.",
+  "Renter agrees to hold the owner harmless and confirms the vehicle was inspected and accepted in good operating condition.",
+];
 
 export default function BookingFormScreen() {
   const { carId } = useLocalSearchParams();
@@ -51,6 +64,9 @@ export default function BookingFormScreen() {
   const [usePoints, setUsePoints] = useState(false);
   const [pointsToUse, setPointsToUse] = useState("0");
   const [agreeTerms, setAgreeTerms] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+
+  
 
   useEffect(() => {
     loadInitialData();
@@ -562,15 +578,85 @@ export default function BookingFormScreen() {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.termsRow} onPress={() => setAgreeTerms(!agreeTerms)}>
-          <View style={[styles.checkbox, agreeTerms && styles.checkboxActive]}>
-            {agreeTerms && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
+
+
+        <View style={styles.termsCard}>
+          <View style={styles.termsHeader}>
+            <View style={styles.termsIconBox}>
+              <Ionicons name="document-text-outline" size={24} color={ORANGE} />
+            </View>
+
+            <View style={{ flex: 1 }}>
+              <Text style={styles.termsTitle}>Rental Terms & Conditions</Text>
+              <Text style={styles.termsSubtitle}>
+                Please review and accept the rental policy before confirming your booking.
+              </Text>
+            </View>
           </View>
 
-          <Text style={styles.termsText}>
-            I agree to the Rental Terms & Conditions.
-          </Text>
+          <TouchableOpacity
+            style={styles.viewTermsButton}
+            onPress={() => setShowTermsModal(true)}
+          >
+            <Text style={styles.viewTermsText}>View Terms & Conditions</Text>
+            <Ionicons name="chevron-forward" size={18} color={ORANGE} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.agreeRow}
+            onPress={() => setAgreeTerms(!agreeTerms)}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.checkbox, agreeTerms && styles.checkboxActive]}>
+              {agreeTerms && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
+            </View>
+
+            <Text style={styles.termsText}>
+              I have read and agree to the rental terms and conditions.
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <Modal
+  visible={showTermsModal}
+  animationType="slide"
+  transparent
+  onRequestClose={() => setShowTermsModal(false)}
+>
+  <View style={styles.modalOverlay}>
+    <View style={styles.modalCard}>
+      <View style={styles.modalHeader}>
+        <Text style={styles.modalTitle}>Terms & Conditions</Text>
+
+        <TouchableOpacity onPress={() => setShowTermsModal(false)}>
+          <Ionicons name="close" size={24} color={DARK} />
         </TouchableOpacity>
+      </View>
+
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {TERMS.map((term, index) => (
+          <View key={index} style={styles.termItem}>
+            <View style={styles.termNumber}>
+              <Text style={styles.termNumberText}>{index + 1}</Text>
+            </View>
+
+            <Text style={styles.termText}>{term}</Text>
+          </View>
+        ))}
+
+        <TouchableOpacity
+          style={styles.modalAgreeButton}
+          onPress={() => {
+            setAgreeTerms(true);
+            setShowTermsModal(false);
+          }}
+        >
+          <Text style={styles.modalAgreeText}>I Agree</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </View>
+  </View>
+</Modal>
 
         <TouchableOpacity
           style={[styles.confirmButton, (!agreeTerms || checking) && styles.confirmButtonDisabled]}
@@ -892,4 +978,128 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     fontSize: 16,
   },
+
+  termsCard: {
+  marginTop: 22,
+  backgroundColor: "#FFFFFF",
+  borderRadius: 22,
+  padding: 16,
+  borderWidth: 1,
+  borderColor: "#FED7AA",
+},
+termsHeader: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 12,
+},
+termsIconBox: {
+  width: 46,
+  height: 46,
+  borderRadius: 15,
+  backgroundColor: "#FFF7ED",
+  alignItems: "center",
+  justifyContent: "center",
+},
+termsTitle: {
+  color: DARK,
+  fontSize: 15,
+  fontWeight: "900",
+},
+termsSubtitle: {
+  color: MUTED,
+  fontSize: 12,
+  fontWeight: "700",
+  marginTop: 3,
+  lineHeight: 18,
+},
+viewTermsButton: {
+  marginTop: 14,
+  paddingVertical: 13,
+  paddingHorizontal: 14,
+  borderRadius: 15,
+  backgroundColor: "#FFF7ED",
+  borderWidth: 1,
+  borderColor: "#FED7AA",
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "space-between",
+},
+viewTermsText: {
+  color: ORANGE,
+  fontWeight: "900",
+},
+agreeRow: {
+  marginTop: 14,
+  flexDirection: "row",
+  alignItems: "flex-start",
+  gap: 10,
+},
+modalOverlay: {
+  flex: 1,
+  backgroundColor: "rgba(15, 23, 42, 0.45)",
+  justifyContent: "flex-end",
+},
+modalCard: {
+  maxHeight: "86%",
+  backgroundColor: "#FFFFFF",
+  borderTopLeftRadius: 28,
+  borderTopRightRadius: 28,
+  padding: 20,
+},
+modalHeader: {
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "space-between",
+  marginBottom: 16,
+},
+modalTitle: {
+  fontSize: 20,
+  fontWeight: "900",
+  color: DARK,
+},
+termItem: {
+  flexDirection: "row",
+  gap: 12,
+  padding: 14,
+  borderRadius: 16,
+  backgroundColor: "#F8FAFC",
+  borderWidth: 1,
+  borderColor: "#E2E8F0",
+  marginBottom: 10,
+},
+termNumber: {
+  width: 30,
+  height: 30,
+  borderRadius: 10,
+  backgroundColor: "#FFF7ED",
+  alignItems: "center",
+  justifyContent: "center",
+},
+termNumberText: {
+  color: ORANGE,
+  fontWeight: "900",
+},
+termText: {
+  flex: 1,
+  color: DARK,
+  fontSize: 13,
+  fontWeight: "700",
+  lineHeight: 20,
+},
+modalAgreeButton: {
+  height: 54,
+  borderRadius: 16,
+  backgroundColor: ORANGE,
+  alignItems: "center",
+  justifyContent: "center",
+  marginTop: 10,
+  marginBottom: 20,
+},
+modalAgreeText: {
+  color: "#FFFFFF",
+  fontWeight: "900",
+  fontSize: 15,
+},
+
 });
+

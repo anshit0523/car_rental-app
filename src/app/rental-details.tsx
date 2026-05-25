@@ -21,13 +21,19 @@ const ORANGE = "#F97316";
 const DARK = "#0F172A";
 const MUTED = "#64748B";
 const GREEN = "#16A34A";
+const RED = "#DC2626";
+const BLUE = "#2563EB";
+
+type TabType = "details" | "return";
 
 export default function RentalDetailsScreen() {
   const { rentalId } = useLocalSearchParams();
 
+  const [activeTab, setActiveTab] = useState<TabType>("details");
   const [rental, setRental] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
+  const [issuePhotoPreview, setIssuePhotoPreview] = useState<string | null>(null);
   const [cancelLoading, setCancelLoading] = useState(false);
 
   useEffect(() => {
@@ -108,33 +114,33 @@ export default function RentalDetailsScreen() {
     }
   };
 
-const needHelp = () => {
-  Alert.alert(
-    "Need Help?",
-    "Contact Dumaguete EZE Car Rental support.",
-    [
+  const needHelp = () => {
+    Alert.alert(
+      "Need Help?",
+      "Contact Dumaguete EZE Car Rental support.",
+      [
+        {
+          text: "Call SMART/TNT",
+          onPress: () => Linking.openURL("tel:09812255442"),
+        },
+        {
+          text: "Call TM/GLOBE",
+          onPress: () => Linking.openURL("tel:09552603041"),
+        },
+        {
+          text: "Message SMART/TNT",
+          onPress: () => Linking.openURL("sms:09812255442"),
+        },
+        {
+          text: "Exit",
+          style: "cancel",
+        },
+      ],
       {
-        text: "Call SMART/TNT",
-        onPress: () => Linking.openURL("tel:09812255442"),
+        cancelable: true,
       },
-      {
-        text: "Call TM/GLOBE",
-        onPress: () => Linking.openURL("tel:09552603041"),
-      },
-      {
-        text: "Message SMART/TNT",
-        onPress: () => Linking.openURL("sms:09812255442"),
-      },
-      {
-        text: "Exit",
-        style: "cancel",
-      },
-    ],
-    {
-      cancelable: true,
-    }
-  );
-};
+    );
+  };
 
   const formatMoney = (value?: number) => {
     return `₱${Number(value || 0).toLocaleString()}`;
@@ -152,8 +158,23 @@ const needHelp = () => {
     });
   };
 
-  const getStatusStyle = (status?: string) => {
-    const name = (status || "").toLowerCase();
+  const formatText = (value?: string) => {
+    if (!value) return "N/A";
+
+    return value
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  };
+
+  const getStatusStyle = (status?: any) => {
+    const name =
+      typeof status === "string"
+        ? status.toLowerCase()
+        : typeof status?.name === "string"
+          ? status.name.toLowerCase()
+          : typeof status?.label === "string"
+            ? status.label.toLowerCase()
+            : "";
 
     if (name.includes("pending")) {
       return { bg: "#FEF3C7", text: "#92400E" };
@@ -167,11 +188,87 @@ const needHelp = () => {
       return { bg: "#DBEAFE", text: "#1D4ED8" };
     }
 
+    if (name.includes("return") || name.includes("checkup")) {
+      return { bg: "#FFEDD5", text: "#C2410C" };
+    }
+
+    if (name.includes("damage") || name.includes("repair")) {
+      return { bg: "#FEE2E2", text: "#B91C1C" };
+    }
+
     if (name.includes("cancelled") || name.includes("failed")) {
       return { bg: "#FEE2E2", text: "#B91C1C" };
     }
 
     return { bg: "#F1F5F9", text: MUTED };
+  };
+
+  const getIssueStatusStyle = (status?: string) => {
+    const name = (status || "").toLowerCase();
+
+    if (name.includes("pending")) {
+      return { bg: "#FEF3C7", text: "#92400E", icon: "time-outline" as const };
+    }
+
+    if (name.includes("review")) {
+      return { bg: "#DBEAFE", text: "#1D4ED8", icon: "search-outline" as const };
+    }
+
+    if (name.includes("awaiting") || name.includes("payment")) {
+      return { bg: "#FFEDD5", text: "#C2410C", icon: "wallet-outline" as const };
+    }
+
+    if (name.includes("resolved")) {
+      return { bg: "#DCFCE7", text: "#166534", icon: "checkmark-circle-outline" as const };
+    }
+
+    if (name.includes("rejected")) {
+      return { bg: "#FEE2E2", text: "#B91C1C", icon: "close-circle-outline" as const };
+    }
+
+    return { bg: "#F1F5F9", text: MUTED, icon: "information-circle-outline" as const };
+  };
+
+  const getIssueStatusMessage = (status?: string) => {
+    const name = (status || "").toLowerCase();
+
+    if (name.includes("review")) {
+      return {
+        title: "Issue Under Review",
+        message:
+          "Our staff is checking the uploaded photos, vehicle condition, and possible charges.",
+      };
+    }
+
+    if (name.includes("awaiting") || name.includes("payment")) {
+      return {
+        title: "Payment Needed",
+        message:
+          "The return issue has been confirmed and the final charge is ready for payment.",
+      };
+    }
+
+    if (name.includes("resolved")) {
+      return {
+        title: "Issue Resolved",
+        message:
+          "This return issue has already been settled. No further action is required.",
+      };
+    }
+
+    if (name.includes("rejected")) {
+      return {
+        title: "Issue Rejected",
+        message:
+          "This reported issue was reviewed and no charge was applied.",
+      };
+    }
+
+    return {
+      title: "Issue Report Submitted",
+      message:
+        "A return issue has been reported for this rental and is waiting for review.",
+    };
   };
 
   if (loading) {
@@ -212,9 +309,410 @@ const needHelp = () => {
   const finalTotal = Number(rental.final_total || total);
   const pointsUsed = Number(rental.points_used || 0);
 
+  const returnIssue = rental.return_issue || rental.returnIssue || null;
+  const issueStatus =
+    returnIssue?.issue_status ||
+    returnIssue?.issueStatus ||
+    returnIssue?.status ||
+    null;
+
+  const issueStatusName =
+    typeof issueStatus === "string"
+      ? issueStatus
+      : issueStatus?.name || issueStatus?.label || "";
+
+  const issueStatusLabel =
+    typeof issueStatus === "string"
+      ? formatText(issueStatus)
+      : issueStatus?.label || issueStatus?.name || formatText(issueStatusName);
+
+  const issueStatusStyle = getIssueStatusStyle(issueStatusName);
+  const issueStatusContent = getIssueStatusMessage(issueStatusName);
+  const issuePhotos = returnIssue?.photos || returnIssue?.return_issue_photos || [];
+  const issueHistories = returnIssue?.histories || returnIssue?.return_issue_histories || [];
+
   const canCancel =
     statusName === "Pending Payment" ||
     statusName === "Pending Payment Verification";
+
+  const renderDetailsTab = () => (
+    <>
+      <Text style={styles.sectionTitle}>Car Information</Text>
+
+      <View style={styles.cardRow}>
+        <View style={styles.carImageBox}>
+          {imageUrl ? (
+            <Image source={{ uri: imageUrl }} style={styles.carImage} />
+          ) : (
+            <Ionicons name="car-sport-outline" size={44} color={ORANGE} />
+          )}
+        </View>
+
+        <View style={{ flex: 1 }}>
+          <Text style={styles.carName}>{carName || "Car Booking"}</Text>
+          <Text style={styles.carMeta}>
+            {rental.car?.transmission || "N/A"} •{" "}
+            {rental.car?.fuel_type || "N/A"}
+          </Text>
+        </View>
+      </View>
+
+      <Text style={styles.sectionTitle}>Rental Period</Text>
+
+      <View style={styles.timelineCard}>
+        <View style={styles.timelineItem}>
+          <View style={styles.timelineIcon}>
+            <Ionicons name="location" size={18} color={ORANGE} />
+          </View>
+
+          <View style={{ flex: 1 }}>
+            <Text style={styles.timelineTitle}>Pickup</Text>
+            <Text style={styles.timelineValue}>
+              {formatDateTime(rental.pickup_at)}
+            </Text>
+            <Text style={styles.timelineSub}>
+              {rental.service_location || "Branch pickup"}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.timelineLine} />
+
+        <View style={styles.timelineItem}>
+          <View style={styles.timelineIcon}>
+            <Ionicons name="flag" size={18} color={ORANGE} />
+          </View>
+
+          <View style={{ flex: 1 }}>
+            <Text style={styles.timelineTitle}>Return</Text>
+            <Text style={styles.timelineValue}>
+              {formatDateTime(rental.return_at)}
+            </Text>
+            <Text style={styles.timelineSub}>
+              {rental.service_location || "Branch return"}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <Text style={styles.sectionTitle}>Payment Summary</Text>
+
+      <View style={styles.summaryCard}>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Total Price</Text>
+          <Text style={styles.summaryValue}>{formatMoney(total)}</Text>
+        </View>
+
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Points Discount</Text>
+          <Text style={styles.discountText}>- {formatMoney(discount)}</Text>
+        </View>
+
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Points Used</Text>
+          <Text style={styles.summaryValue}>{pointsUsed} pts</Text>
+        </View>
+
+        <View style={styles.divider} />
+
+        <View style={styles.summaryRow}>
+          <Text style={styles.totalLabel}>Final Amount</Text>
+          <Text style={styles.totalValue}>{formatMoney(finalTotal)}</Text>
+        </View>
+      </View>
+
+      <Text style={styles.sectionTitle}>Receipt Status</Text>
+
+      <View style={styles.receiptCard}>
+        <View style={styles.receiptTop}>
+          <View style={styles.receiptIcon}>
+            <Ionicons name="receipt-outline" size={26} color={ORANGE} />
+          </View>
+
+          <View style={{ flex: 1 }}>
+            <Text style={styles.receiptTitle}>
+              {rental.photo_receipt
+                ? "Receipt Uploaded"
+                : "No Receipt Uploaded"}
+            </Text>
+            <Text style={styles.receiptSub}>
+              {rental.photo_receipt?.status || "Awaiting payment receipt"}
+            </Text>
+          </View>
+        </View>
+
+        {receiptUrl ? (
+          <TouchableOpacity
+            style={styles.outlineButton}
+            onPress={() => setReceiptPreview(receiptUrl)}
+          >
+            <Text style={styles.outlineButtonText}>View Receipt</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+
+      <Text style={styles.sectionTitle}>Service Location</Text>
+
+      <View style={styles.simpleCard}>
+        <View style={styles.circleIcon}>
+          <Ionicons name="location-outline" size={22} color={ORANGE} />
+        </View>
+
+        <View style={{ flex: 1 }}>
+          <Text style={styles.simpleTitle}>
+            {rental.service_location || "Dumaguete EZE Car Rental"}
+          </Text>
+          <Text style={styles.simpleSub}>Pickup / delivery location</Text>
+        </View>
+      </View>
+
+      <Text style={styles.sectionTitle}>Points Used</Text>
+
+      <View style={styles.simpleCard}>
+        <View style={[styles.circleIcon, { backgroundColor: "#FEF3C7" }]}>
+          <Ionicons name="star-outline" size={22} color="#D97706" />
+        </View>
+
+        <View style={{ flex: 1 }}>
+          <Text style={styles.simpleTitle}>{pointsUsed} Points</Text>
+          <Text style={styles.simpleSub}>Worth {formatMoney(discount)}</Text>
+        </View>
+      </View>
+
+      {canCancel && (
+        <View style={styles.cancelCard}>
+          <View style={styles.cancelTop}>
+            <Ionicons name="shield-outline" size={24} color={ORANGE} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cancelTitle}>
+                You can cancel this booking
+              </Text>
+              <Text style={styles.cancelText}>
+                Cancellation is allowed before payment is verified.
+              </Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.cancelButton, cancelLoading && { opacity: 0.7 }]}
+            onPress={cancelBooking}
+            disabled={cancelLoading}
+          >
+            {cancelLoading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.cancelButtonText}>Cancel Booking</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+    </>
+  );
+
+  const renderReturnTab = () => {
+    if (!returnIssue) {
+      return (
+        <View style={styles.returnEmptyCard}>
+          <View style={styles.returnEmptyIcon}>
+            <Ionicons name="car-outline" size={34} color={ORANGE} />
+          </View>
+
+          <Text style={styles.returnEmptyTitle}>No Return Issue Yet</Text>
+          <Text style={styles.returnEmptyText}>
+            Return issue details will appear here when staff reports a checkup,
+            damage, repair, or final return charge for this booking.
+          </Text>
+
+          <View style={styles.returnSteps}>
+            <View style={styles.returnStep}>
+              <View style={styles.returnStepDot} />
+              <Text style={styles.returnStepText}>Vehicle returned</Text>
+            </View>
+
+            <View style={styles.returnStep}>
+              <View style={styles.returnStepDot} />
+              <Text style={styles.returnStepText}>Staff checks vehicle condition</Text>
+            </View>
+
+            <View style={styles.returnStep}>
+              <View style={styles.returnStepDot} />
+              <Text style={styles.returnStepText}>Issue or final status appears here</Text>
+            </View>
+          </View>
+        </View>
+      );
+    }
+
+    return (
+      <>
+        <View style={styles.returnStatusCard}>
+          <View style={[styles.returnStatusIcon, { backgroundColor: issueStatusStyle.bg }]}>
+            <Ionicons
+              name={issueStatusStyle.icon}
+              size={26}
+              color={issueStatusStyle.text}
+            />
+          </View>
+
+          <View style={{ flex: 1 }}>
+            <Text style={styles.returnStatusTitle}>{issueStatusContent.title}</Text>
+            <Text style={styles.returnStatusText}>{issueStatusContent.message}</Text>
+          </View>
+        </View>
+
+        <Text style={styles.sectionTitle}>Return Issue</Text>
+
+        <View style={styles.issueCard}>
+          <View style={styles.issueBadgeRow}>
+            <View style={[styles.issueBadge, { backgroundColor: issueStatusStyle.bg }]}>
+              <Text style={[styles.issueBadgeText, { color: issueStatusStyle.text }]}>
+                {issueStatusLabel}
+              </Text>
+            </View>
+
+            <View style={styles.issueTypeBadge}>
+              <Text style={styles.issueTypeText}>
+                {formatText(returnIssue.issue_type)}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.issueLine}>
+            <Text style={styles.issueLineLabel}>Reported At</Text>
+            <Text style={styles.issueLineValue}>
+              {formatDateTime(returnIssue.reported_at)}
+            </Text>
+          </View>
+
+          <View style={styles.issueLine}>
+            <Text style={styles.issueLineLabel}>Estimated Charge</Text>
+            <Text style={styles.issueLineValue}>
+              {formatMoney(returnIssue.estimated_charge)}
+            </Text>
+          </View>
+
+          <View style={styles.issueLine}>
+            <Text style={styles.issueLineLabel}>Final Charge</Text>
+            <Text style={[styles.issueLineValue, Number(returnIssue.final_charge || 0) > 0 && { color: RED }]}>
+              {Number(returnIssue.final_charge || 0) > 0
+                ? formatMoney(returnIssue.final_charge)
+                : "Not yet finalized"}
+            </Text>
+          </View>
+
+          <View style={styles.issueLineLast}>
+            <Text style={styles.issueLineLabel}>Reference</Text>
+            <Text style={styles.issueLineValue}>
+              {returnIssue.title || "Return Issue"}
+            </Text>
+          </View>
+        </View>
+
+        <Text style={styles.sectionTitle}>Description</Text>
+
+        <View style={styles.descriptionCard}>
+          <Text style={styles.descriptionText}>
+            {returnIssue.description || "No additional description provided."}
+          </Text>
+        </View>
+
+        <Text style={styles.sectionTitle}>Photos</Text>
+
+        {issuePhotos.length ? (
+          <View style={styles.photoGrid}>
+            {issuePhotos.map((photo: any, index: number) => {
+              const photoUrl =
+                photo.image_url ||
+                photo.photo_url ||
+                photo.url ||
+                photo.photo_path ||
+                photo;
+
+              return (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.issuePhotoBox}
+                  onPress={() => setIssuePhotoPreview(photoUrl)}
+                >
+                  <Image
+                    source={{ uri: photoUrl }}
+                    style={styles.issuePhoto}
+                  />
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ) : (
+          <View style={styles.descriptionCard}>
+            <Text style={styles.emptySmallText}>No photos uploaded.</Text>
+          </View>
+        )}
+
+        <Text style={styles.sectionTitle}>Timeline</Text>
+
+        {issueHistories.length ? (
+          <View style={styles.issueTimelineCard}>
+            {issueHistories.map((history: any, index: number) => (
+              <View key={index} style={styles.issueTimelineItem}>
+                <View style={styles.issueTimelineLeft}>
+                  <View style={styles.issueTimelineDot} />
+                  {index !== issueHistories.length - 1 && (
+                    <View style={styles.issueTimelineLine} />
+                  )}
+                </View>
+
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.issueTimelineTitle}>
+                    {history.title || "Status Updated"}
+                  </Text>
+
+                  <Text style={styles.issueTimelineMeta}>
+                    {formatDateTime(history.created_at)}
+                    {history.changed_by?.name
+                      ? ` • by ${history.changed_by.name}`
+                      : history.changedBy?.name
+                        ? ` • by ${history.changedBy.name}`
+                        : ""}
+                  </Text>
+
+                  {history.message ? (
+                    <Text style={styles.issueTimelineMessage}>
+                      {history.message}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.descriptionCard}>
+            <Text style={styles.emptySmallText}>
+              No history updates available yet.
+            </Text>
+          </View>
+        )}
+
+        {issueStatusName === "awaiting_payment" && (
+          <TouchableOpacity
+            style={styles.payIssueButton}
+            onPress={() =>
+              router.push({
+                pathname: "/payments",
+                params: {
+                  bookingId: String(rental.id),
+                  returnIssueId: String(returnIssue.id),
+                  amount: String(returnIssue.final_charge || 0),
+                },
+              })
+            }
+          >
+            <Ionicons name="wallet-outline" size={20} color="#FFFFFF" />
+            <Text style={styles.payIssueButtonText}>Pay Return Charge</Text>
+          </TouchableOpacity>
+        )}
+      </>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -252,175 +750,57 @@ const needHelp = () => {
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Car Information</Text>
-
-        <View style={styles.cardRow}>
-          <View style={styles.carImageBox}>
-            {imageUrl ? (
-              <Image source={{ uri: imageUrl }} style={styles.carImage} />
-            ) : (
-              <Ionicons name="car-sport-outline" size={44} color={ORANGE} />
-            )}
-          </View>
-
-          <View style={{ flex: 1 }}>
-            <Text style={styles.carName}>{carName || "Car Booking"}</Text>
-            <Text style={styles.carMeta}>
-              {rental.car?.transmission || "N/A"} •{" "}
-              {rental.car?.fuel_type || "N/A"}
-            </Text>
-          </View>
-        </View>
-
-        <Text style={styles.sectionTitle}>Rental Period</Text>
-
-        <View style={styles.timelineCard}>
-          <View style={styles.timelineItem}>
-            <View style={styles.timelineIcon}>
-              <Ionicons name="location" size={18} color={ORANGE} />
-            </View>
-
-            <View>
-              <Text style={styles.timelineTitle}>Pickup</Text>
-              <Text style={styles.timelineValue}>
-                {formatDateTime(rental.pickup_at)}
-              </Text>
-              <Text style={styles.timelineSub}>
-                {rental.service_location || "Branch pickup"}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.timelineLine} />
-
-          <View style={styles.timelineItem}>
-            <View style={styles.timelineIcon}>
-              <Ionicons name="flag" size={18} color={ORANGE} />
-            </View>
-
-            <View>
-              <Text style={styles.timelineTitle}>Return</Text>
-              <Text style={styles.timelineValue}>
-                {formatDateTime(rental.return_at)}
-              </Text>
-              <Text style={styles.timelineSub}>
-                {rental.service_location || "Branch return"}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <Text style={styles.sectionTitle}>Payment Summary</Text>
-
-        <View style={styles.summaryCard}>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Total Price</Text>
-            <Text style={styles.summaryValue}>{formatMoney(total)}</Text>
-          </View>
-
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Points Discount</Text>
-            <Text style={styles.discountText}>- {formatMoney(discount)}</Text>
-          </View>
-
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Points Used</Text>
-            <Text style={styles.summaryValue}>{pointsUsed} pts</Text>
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.summaryRow}>
-            <Text style={styles.totalLabel}>Final Amount</Text>
-            <Text style={styles.totalValue}>{formatMoney(finalTotal)}</Text>
-          </View>
-        </View>
-
-        <Text style={styles.sectionTitle}>Receipt Status</Text>
-
-        <View style={styles.receiptCard}>
-          <View style={styles.receiptTop}>
-            <View style={styles.receiptIcon}>
-              <Ionicons name="receipt-outline" size={26} color={ORANGE} />
-            </View>
-
-            <View style={{ flex: 1 }}>
-              <Text style={styles.receiptTitle}>
-                {rental.photo_receipt
-                  ? "Receipt Uploaded"
-                  : "No Receipt Uploaded"}
-              </Text>
-              <Text style={styles.receiptSub}>
-                {rental.photo_receipt?.status || "Awaiting payment receipt"}
-              </Text>
-            </View>
-          </View>
-
-          {receiptUrl ? (
-            <TouchableOpacity
-              style={styles.outlineButton}
-              onPress={() => setReceiptPreview(receiptUrl)}
+        <View style={styles.tabCard}>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={[
+              styles.tabButton,
+              activeTab === "details" && styles.tabButtonActive,
+            ]}
+            onPress={() => setActiveTab("details")}
+          >
+            <Ionicons
+              name="document-text-outline"
+              size={17}
+              color={activeTab === "details" ? "#FFFFFF" : MUTED}
+            />
+            <Text
+              style={[
+                styles.tabButtonText,
+                activeTab === "details" && styles.tabButtonTextActive,
+              ]}
             >
-              <Text style={styles.outlineButtonText}>View Receipt</Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
-
-        <Text style={styles.sectionTitle}>Service Location</Text>
-
-        <View style={styles.simpleCard}>
-          <View style={styles.circleIcon}>
-            <Ionicons name="location-outline" size={22} color={ORANGE} />
-          </View>
-
-          <View>
-            <Text style={styles.simpleTitle}>
-              {rental.service_location || "Dumaguete EZE Car Rental"}
+              Details
             </Text>
-            <Text style={styles.simpleSub}>Pickup / delivery location</Text>
-          </View>
-        </View>
+          </TouchableOpacity>
 
-        <Text style={styles.sectionTitle}>Points Used</Text>
-
-        <View style={styles.simpleCard}>
-          <View style={[styles.circleIcon, { backgroundColor: "#FEF3C7" }]}>
-            <Ionicons name="star-outline" size={22} color="#D97706" />
-          </View>
-
-          <View>
-            <Text style={styles.simpleTitle}>{pointsUsed} Points</Text>
-            <Text style={styles.simpleSub}>Worth {formatMoney(discount)}</Text>
-          </View>
-        </View>
-
-        {canCancel && (
-          <View style={styles.cancelCard}>
-            <View style={styles.cancelTop}>
-              <Ionicons name="shield-outline" size={24} color={ORANGE} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.cancelTitle}>
-                  You can cancel this booking
-                </Text>
-                <Text style={styles.cancelText}>
-                  Cancellation is allowed before payment is verified.
-                </Text>
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.cancelButton, cancelLoading && { opacity: 0.7 }]}
-              onPress={cancelBooking}
-              disabled={cancelLoading}
+          <TouchableOpacity
+            activeOpacity={0.85}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={[
+              styles.tabButton,
+              activeTab === "return" && styles.tabButtonActive,
+            ]}
+            onPress={() => setActiveTab("return")}
+          >
+            <Ionicons
+              name="return-down-back-outline"
+              size={17}
+              color={activeTab === "return" ? "#FFFFFF" : MUTED}
+            />
+            <Text
+              style={[
+                styles.tabButtonText,
+                activeTab === "return" && styles.tabButtonTextActive,
+              ]}
             >
-              {cancelLoading ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.cancelButtonText}>Cancel Booking</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
+              Return
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {activeTab === "details" ? renderDetailsTab() : renderReturnTab()}
 
         <TouchableOpacity style={styles.helpButton} onPress={needHelp}>
           <Text style={styles.helpButtonText}>Need Help?</Text>
@@ -439,6 +819,25 @@ const needHelp = () => {
           {receiptPreview && (
             <Image
               source={{ uri: receiptPreview }}
+              style={styles.modalImage}
+              resizeMode="contain"
+            />
+          )}
+        </View>
+      </Modal>
+
+      <Modal visible={!!issuePhotoPreview} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalClose}
+            onPress={() => setIssuePhotoPreview(null)}
+          >
+            <Ionicons name="close" size={30} color="#FFFFFF" />
+          </TouchableOpacity>
+
+          {issuePhotoPreview && (
+            <Image
+              source={{ uri: issuePhotoPreview }}
               style={styles.modalImage}
               resizeMode="contain"
             />
@@ -524,6 +923,38 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "900",
     textAlign: "center",
+  },
+  tabCard: {
+    marginTop: 18,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 6,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    flexDirection: "row",
+    gap: 6,
+    zIndex: 5,
+    elevation: 2,
+  },
+  tabButton: {
+    flex: 1,
+    height: 44,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 7,
+  },
+  tabButtonActive: {
+    backgroundColor: ORANGE,
+  },
+  tabButtonText: {
+    color: MUTED,
+    fontWeight: "900",
+    fontSize: 13,
+  },
+  tabButtonTextActive: {
+    color: "#FFFFFF",
   },
   sectionTitle: {
     marginTop: 24,
@@ -778,6 +1209,245 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     color: "#FFFFFF",
     fontWeight: "900",
+  },
+  returnEmptyCard: {
+    marginTop: 24,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 22,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    alignItems: "center",
+  },
+  returnEmptyIcon: {
+    width: 76,
+    height: 76,
+    borderRadius: 999,
+    backgroundColor: "#FFF7ED",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 14,
+  },
+  returnEmptyTitle: {
+    color: DARK,
+    fontSize: 18,
+    fontWeight: "900",
+  },
+  returnEmptyText: {
+    color: MUTED,
+    textAlign: "center",
+    lineHeight: 21,
+    fontWeight: "600",
+    marginTop: 8,
+  },
+  returnSteps: {
+    marginTop: 20,
+    width: "100%",
+    backgroundColor: "#F8FAFC",
+    borderRadius: 16,
+    padding: 14,
+    gap: 11,
+  },
+  returnStep: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  returnStepDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 999,
+    backgroundColor: ORANGE,
+  },
+  returnStepText: {
+    color: DARK,
+    fontWeight: "700",
+    flex: 1,
+  },
+  returnStatusCard: {
+    marginTop: 24,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 22,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    flexDirection: "row",
+    gap: 14,
+  },
+  returnStatusIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  returnStatusTitle: {
+    color: DARK,
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  returnStatusText: {
+    color: MUTED,
+    marginTop: 6,
+    lineHeight: 20,
+    fontWeight: "600",
+  },
+  issueCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  issueBadgeRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 12,
+  },
+  issueBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  issueBadgeText: {
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  issueTypeBadge: {
+    backgroundColor: "#F1F5F9",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  issueTypeText: {
+    color: DARK,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  issueLine: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  issueLineLast: {
+    paddingTop: 12,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  issueLineLabel: {
+    color: MUTED,
+    fontSize: 12,
+    fontWeight: "900",
+    textTransform: "uppercase",
+    flex: 1,
+  },
+  issueLineValue: {
+    color: DARK,
+    fontSize: 13,
+    fontWeight: "900",
+    textAlign: "right",
+    flex: 1.2,
+  },
+  descriptionCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  descriptionText: {
+    color: DARK,
+    fontWeight: "600",
+    lineHeight: 22,
+  },
+  emptySmallText: {
+    color: MUTED,
+    fontWeight: "700",
+  },
+  photoGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  issuePhotoBox: {
+    width: "31.5%",
+    height: 96,
+    borderRadius: 16,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    overflow: "hidden",
+  },
+  issuePhoto: {
+    width: "100%",
+    height: "100%",
+  },
+  issueTimelineCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  issueTimelineItem: {
+    flexDirection: "row",
+    gap: 12,
+    minHeight: 72,
+  },
+  issueTimelineLeft: {
+    alignItems: "center",
+    width: 18,
+  },
+  issueTimelineDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 999,
+    backgroundColor: ORANGE,
+    borderWidth: 3,
+    borderColor: "#FFEDD5",
+  },
+  issueTimelineLine: {
+    flex: 1,
+    width: 2,
+    backgroundColor: "#E2E8F0",
+    marginTop: 3,
+  },
+  issueTimelineTitle: {
+    color: DARK,
+    fontWeight: "900",
+    fontSize: 14,
+  },
+  issueTimelineMeta: {
+    color: MUTED,
+    marginTop: 4,
+    fontWeight: "600",
+    fontSize: 11,
+  },
+  issueTimelineMessage: {
+    color: DARK,
+    marginTop: 6,
+    lineHeight: 19,
+    fontWeight: "600",
+  },
+  payIssueButton: {
+    marginTop: 24,
+    height: 54,
+    backgroundColor: BLUE,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
+  payIssueButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "900",
+    fontSize: 15,
   },
   modalOverlay: {
     flex: 1,

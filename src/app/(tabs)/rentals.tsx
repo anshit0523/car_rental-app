@@ -40,9 +40,17 @@ const tabs = [
   { label: "Pending", value: "Pending Payment Verification" },
   { label: "Upcoming", value: "Confirmed" },
   { label: "Active", value: "Active" },
+  { label: "Return", value: "return_group" },
   { label: "Completed", value: "Completed" },
   { label: "Cancelled", value: "Cancelled" },
   { label: "Failed", value: "Failed" },
+];
+
+const RETURN_STATUSES = [
+  "Return",
+  "Checkup",
+  "Damage",
+  "Needs Repair",
 ];
 
 function getStatusStyle(status?: string) {
@@ -58,6 +66,15 @@ function getStatusStyle(status?: string) {
 
   if (name.includes("completed")) {
     return { backgroundColor: "#DBEAFE", color: "#1D4ED8" };
+  }
+
+  if (
+    name.includes("return") ||
+    name.includes("checkup") ||
+    name.includes("damage") ||
+    name.includes("needs repair")
+  ) {
+    return { backgroundColor: "#FFEDD5", color: "#C2410C" };
   }
 
   if (name.includes("cancelled") || name.includes("failed")) {
@@ -110,10 +127,11 @@ export default function RentalsScreen() {
     try {
       const token = await AsyncStorage.getItem("auth_token");
 
-      const url =
-        status === "all"
-          ? `${API_URL}/rentals`
-          : `${API_URL}/rentals?status=${encodeURIComponent(status)}`;
+      const shouldFetchAll = status === "all" || status === "return_group";
+
+      const url = shouldFetchAll
+        ? `${API_URL}/rentals`
+        : `${API_URL}/rentals?status=${encodeURIComponent(status)}`;
 
       const response = await fetch(url, {
         headers: {
@@ -125,7 +143,18 @@ export default function RentalsScreen() {
       const data = await response.json();
 
       if (data.success) {
-        setRentals(data.bookings?.data || data.bookings || []);
+        const rentalList = data.bookings?.data || data.bookings || [];
+
+        if (status === "return_group") {
+          setRentals(
+            rentalList.filter((rental: Rental) =>
+              RETURN_STATUSES.includes(rental.status?.name || "")
+            )
+          );
+          return;
+        }
+
+        setRentals(rentalList);
       }
     } catch (error) {
       console.log("Rentals error:", error);
