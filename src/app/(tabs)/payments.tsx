@@ -52,6 +52,20 @@ type SelectedReceipt = {
   type: string;
 };
 
+const getBaseUrl = () => API_URL.replace(/\/api\/?$/, "");
+
+const buildFileUrl = (path?: string | null) => {
+  if (!path) return null;
+
+  if (path.startsWith("http://") || path.startsWith("https://")) {
+    return path;
+  }
+
+  const cleanPath = path.replace(/^storage\//, "").replace(/^\/+/, "");
+
+  return `${getBaseUrl()}/storage/${cleanPath}`;
+};
+
 export default function PaymentsScreen() {
   const { bookingId, returnIssueId, amount } = useLocalSearchParams<{
     bookingId?: string;
@@ -68,39 +82,42 @@ export default function PaymentsScreen() {
   const [uploadingId, setUploadingId] = useState<number | null>(null);
   const [selectedMethod, setSelectedMethod] = useState<"gcash" | "bank">("gcash");
   const [selectedReceipts, setSelectedReceipts] = useState<Record<number, SelectedReceipt>>({});
+  const [paidReturnIssueIds, setPaidReturnIssueIds] = useState<number[]>([]);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   useEffect(() => {
     fetchPayments();
   }, []);
 
-  const returnIssuePayment: PendingPayment | null = isReturnIssuePayment
-    ? {
-        id: -Number(returnIssueId),
-        booking_id: Number(bookingId),
-        return_issue_id: Number(returnIssueId),
-        amount: Number(amount || 0),
-        payment_date: new Date().toISOString(),
-        is_return_issue: true,
-        description: "Return Issue Charge",
-        payment_status: {
-          name: "Awaiting Payment",
-        },
-      }
-    : null;
+  const returnIssuePayment: PendingPayment | null =
+    isReturnIssuePayment && !paidReturnIssueIds.includes(Number(returnIssueId))
+      ? {
+          id: -Number(returnIssueId),
+          booking_id: Number(bookingId),
+          return_issue_id: Number(returnIssueId),
+          amount: Number(amount || 0),
+          payment_date: new Date().toISOString(),
+          is_return_issue: true,
+          description: "Return Issue Charge",
+          payment_status: {
+            name: "Awaiting Payment",
+          },
+        }
+      : null;
 
-  const displayedPayments = returnIssuePayment
+  const displayPayments = returnIssuePayment
     ? [
         returnIssuePayment,
         ...payments.filter(
-          (payment) =>
-            !(
-              Number(payment.booking_id) === Number(bookingId) &&
-              Number(payment.return_issue_id || 0) === Number(returnIssueId)
-            )
+          (payment) => Number(payment.return_issue_id || 0) !== Number(returnIssueId),
         ),
       ]
     : payments;
+
+  const gcashQrUrl =
+    paymentSetting?.gcash_qr_image_url ||
+    paymentSetting?.gcash_qr_url ||
+    buildFileUrl(paymentSetting?.gcash_qr_image);
 
   const fetchPayments = async () => {
     try {
@@ -178,7 +195,6 @@ export default function PaymentsScreen() {
 
       if (payment.is_return_issue && payment.return_issue_id) {
         formData.append("return_issue_id", String(payment.return_issue_id));
-        formData.append("amount", String(payment.amount || 0));
         formData.append("receipt", {
           uri: receipt.uri,
           name: receipt.name,
@@ -196,12 +212,12 @@ export default function PaymentsScreen() {
 
       setUploadingId(payment.id);
 
-      const uploadUrl =
+      const endpoint =
         payment.is_return_issue && payment.return_issue_id
           ? `${API_URL}/payments/return-issue/upload-receipt`
           : `${API_URL}/payments/upload-receipt`;
 
-      const response = await fetch(uploadUrl, {
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: {
           Accept: "application/json",
@@ -217,12 +233,13 @@ export default function PaymentsScreen() {
         return;
       }
 
-      Alert.alert(
-        "Success",
-        payment.is_return_issue
-          ? "Return issue receipt uploaded successfully."
-          : "Receipt uploaded successfully."
-      );
+      Alert.alert("Success", "Receipt uploaded successfully.");
+
+      if (payment.is_return_issue && payment.return_issue_id) {
+        setPaidReturnIssueIds((prev) => [
+          ...new Set([...prev, Number(payment.return_issue_id)]),
+        ]);
+      }
 
       setSelectedReceipts((prev) => {
         const copy = { ...prev };
@@ -329,7 +346,7 @@ export default function PaymentsScreen() {
           </TouchableOpacity>
         </View>
 
-        {displayedPayments.length === 0 ? (
+        {displayPayments.length === 0 ? (
           <View style={styles.emptyCard}>
             <Ionicons name="receipt-outline" size={42} color={ORANGE} />
             <Text style={styles.emptyTitle}>No pending payments</Text>
@@ -339,18 +356,20 @@ export default function PaymentsScreen() {
           </View>
         ) : (
           <View style={styles.list}>
-            {displayedPayments.map((payment) => {
+            {displayPayments.map((payment) => {
               const car = payment.booking?.car;
-              const carName = payment.is_return_issue
-                ? "Return Issue Payment"
-                : `${car?.brand?.name || ""} ${car?.model || ""}`.trim();
+              const carName = `${car?.brand?.name || ""} ${car?.model || ""}`.trim();
               const selectedReceipt = selectedReceipts[payment.id];
 
               return (
                 <View key={payment.id} style={styles.paymentCard}>
                   <View style={styles.paymentTop}>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.carName}>{carName || "Car Booking"}</Text>
+                      <Text style={styles.carName}>
+                        {payment.is_return_issue
+                          ? payment.description || "Return Issue Charge"
+                          : carName || "Car Booking"}
+                      </Text>
                       <Text style={styles.dateText}>
                         {payment.is_return_issue
                           ? `Booking #${payment.booking_id}`
@@ -362,24 +381,15 @@ export default function PaymentsScreen() {
                   </View>
 
                   <View style={styles.metaRow}>
-                    {payment.is_return_issue ? (
-                      <View style={styles.metaItem}>
-                        <Ionicons name="return-down-back-outline" size={15} color={MUTED} />
-                        <Text style={styles.metaText}>Return issue charge</Text>
-                      </View>
-                    ) : (
-                      <>
-                        <View style={styles.metaItem}>
-                          <Ionicons name="settings-outline" size={15} color={MUTED} />
-                          <Text style={styles.metaText}>{car?.transmission?.type || "N/A"}</Text>
-                        </View>
+                    <View style={styles.metaItem}>
+                      <Ionicons name="settings-outline" size={15} color={MUTED} />
+                      <Text style={styles.metaText}>{car?.transmission?.type || "N/A"}</Text>
+                    </View>
 
-                        <View style={styles.metaItem}>
-                          <Ionicons name="flame-outline" size={15} color={MUTED} />
-                          <Text style={styles.metaText}>{car?.fuel_type?.type || "N/A"}</Text>
-                        </View>
-                      </>
-                    )}
+                    <View style={styles.metaItem}>
+                      <Ionicons name="flame-outline" size={15} color={MUTED} />
+                      <Text style={styles.metaText}>{car?.fuel_type?.type || "N/A"}</Text>
+                    </View>
                   </View>
 
                   <View style={styles.statusBadge}>
@@ -459,10 +469,20 @@ export default function PaymentsScreen() {
           <View style={styles.methodInfo}>
             <Text style={styles.methodTitle}>GCash Payment</Text>
             <Text style={styles.methodText}>
-              {paymentSetting?.gcash_name || "Send payment to the official rental account."}
+              {paymentSetting?.gcash_account_name || "Send payment to the official rental account."}
             </Text>
             {paymentSetting?.gcash_number ? (
               <Text style={styles.accountText}>{paymentSetting.gcash_number}</Text>
+            ) : null}
+
+            {gcashQrUrl ? (
+              <TouchableOpacity
+                style={styles.qrBox}
+                onPress={() => setPreviewImage(gcashQrUrl)}
+              >
+                <Image source={{ uri: gcashQrUrl }} style={styles.qrImage} />
+                <Text style={styles.qrHint}>Tap QR to preview</Text>
+              </TouchableOpacity>
             ) : null}
           </View>
         </View>
@@ -477,6 +497,9 @@ export default function PaymentsScreen() {
             <Text style={styles.methodText}>
               {paymentSetting?.bank_name || "Use bank transfer if available."}
             </Text>
+            {paymentSetting?.bank_account_name ? (
+              <Text style={styles.accountText}>{paymentSetting.bank_account_name}</Text>
+            ) : null}
             {paymentSetting?.bank_account_number ? (
               <Text style={styles.accountText}>{paymentSetting.bank_account_number}</Text>
             ) : null}
@@ -805,6 +828,28 @@ const styles = StyleSheet.create({
     color: ORANGE,
     fontSize: 13,
     fontWeight: "900",
+  },
+  qrBox: {
+    marginTop: 12,
+    width: 150,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#FED7AA",
+    backgroundColor: "#FFF7ED",
+    padding: 10,
+    alignItems: "center",
+  },
+  qrImage: {
+    width: 125,
+    height: 125,
+    borderRadius: 12,
+    backgroundColor: "#FFFFFF",
+  },
+  qrHint: {
+    marginTop: 8,
+    color: MUTED,
+    fontSize: 11,
+    fontWeight: "800",
   },
   modalOverlay: {
     flex: 1,

@@ -70,6 +70,48 @@ export default function ProfileScreen() {
     );
   };
 
+
+  const logout = () => {
+    Alert.alert(
+      "Logout",
+      "Are you sure you want to logout?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Logout",
+          style: "destructive",
+          onPress: submitLogout,
+        },
+      ],
+      { cancelable: true },
+    );
+  };
+
+  const submitLogout = async () => {
+    try {
+      const token = await AsyncStorage.getItem("auth_token");
+
+      if (token) {
+        await fetch(`${API_URL}/user/logout`, {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      }
+    } catch (error) {
+      console.log("Logout error:", error);
+    } finally {
+      await AsyncStorage.removeItem("auth_token");
+      await AsyncStorage.removeItem("user");
+      router.replace("/");
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView
@@ -166,12 +208,13 @@ export default function ProfileScreen() {
 
           <MenuItem
             icon="information-circle-outline"
-            title="About"
-            subtitle="About Dumaguete EZE"
+            title="About EZE"
+            subtitle="About Dumaguete EZE Car Rental"
+            onPress={() => router.push("/about-eze")}
           />
         </View>
 
-        <TouchableOpacity style={styles.logoutButton}>
+        <TouchableOpacity style={styles.logoutButton} onPress={logout}>
           <Ionicons name="log-out-outline" size={20} color="#DC2626" />
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
