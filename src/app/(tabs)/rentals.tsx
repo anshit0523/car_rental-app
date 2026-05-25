@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
-import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -68,14 +68,43 @@ function getStatusStyle(status?: string) {
 }
 
 export default function RentalsScreen() {
+  const { booking_id } = useLocalSearchParams();
+
   const [rentals, setRentals] = useState<Rental[]>([]);
   const [activeTab, setActiveTab] = useState("all");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  
+  
+
+  const autoOpenedBookingId = useRef<string | null>(null);
 
   useEffect(() => {
     fetchRentals(activeTab);
   }, [activeTab]);
+
+  useEffect(() => {
+    if (!booking_id || rentals.length === 0) return;
+
+    const bookingIdString = Array.isArray(booking_id)
+      ? booking_id[0]
+      : booking_id;
+
+    if (autoOpenedBookingId.current === bookingIdString) return;
+
+    const selectedRental = rentals.find(
+      (item) => String(item.id) === String(bookingIdString)
+    );
+
+    if (selectedRental) {
+      autoOpenedBookingId.current = bookingIdString;
+
+      router.push({
+        pathname: "/rental-details",
+        params: { rentalId: String(selectedRental.id) },
+      });
+    }
+  }, [booking_id, rentals]);
 
   const fetchRentals = async (status: string) => {
     try {
@@ -96,7 +125,7 @@ export default function RentalsScreen() {
       const data = await response.json();
 
       if (data.success) {
-        setRentals(data.bookings?.data || []);
+        setRentals(data.bookings?.data || data.bookings || []);
       }
     } catch (error) {
       console.log("Rentals error:", error);
@@ -122,6 +151,13 @@ export default function RentalsScreen() {
       month: "short",
       day: "numeric",
       year: "numeric",
+    });
+  };
+
+  const openRentalDetails = (rental: Rental) => {
+    router.push({
+      pathname: "/rental-details",
+      params: { rentalId: String(rental.id) },
     });
   };
 
@@ -203,7 +239,16 @@ export default function RentalsScreen() {
               const imageUrl = rental.car?.images?.[0];
 
               return (
-                <View key={rental.id} style={styles.rentalCard}>
+                <TouchableOpacity
+                  key={rental.id}
+                  style={[
+                    styles.rentalCard,
+                    String(rental.id) === String(booking_id) &&
+                      styles.highlightCard,
+                  ]}
+                  activeOpacity={0.85}
+                  onPress={() => openRentalDetails(rental)}
+                >
                   <View style={styles.rentalTop}>
                     <View style={styles.carImageBox}>
                       {imageUrl ? (
@@ -246,72 +291,49 @@ export default function RentalsScreen() {
                     </View>
                   </View>
 
-                  <View style={styles.metaRow}>
-                    <View style={styles.metaItem}>
+                  <View style={styles.detailsRow}>
+                    <View style={styles.detailBox}>
                       <Ionicons
-                        name="settings-outline"
-                        size={15}
-                        color={MUTED}
-                      />
-                      <Text style={styles.metaText}>
-                        {rental.car?.transmission || "N/A"}
-                      </Text>
-                    </View>
-
-                    <View style={styles.metaItem}>
-                      <Ionicons name="flame-outline" size={15} color={MUTED} />
-                      <Text style={styles.metaText}>
-                        {rental.car?.fuel_type || "N/A"}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.timelineBox}>
-                    <View style={styles.timelineItem}>
-                      <Ionicons
-                        name="location-outline"
+                        name="log-in-outline"
                         size={18}
                         color={ORANGE}
                       />
                       <View>
-                        <Text style={styles.timelineLabel}>Pickup</Text>
-                        <Text style={styles.timelineValue}>
+                        <Text style={styles.detailLabel}>Pickup</Text>
+                        <Text style={styles.detailValue}>
                           {formatDate(rental.pickup_at)}
                         </Text>
                       </View>
                     </View>
 
-                    <View style={styles.timelineItem}>
-                      <Ionicons name="flag-outline" size={18} color={ORANGE} />
+                    <View style={styles.detailBox}>
+                      <Ionicons
+                        name="log-out-outline"
+                        size={18}
+                        color={ORANGE}
+                      />
                       <View>
-                        <Text style={styles.timelineLabel}>Return</Text>
-                        <Text style={styles.timelineValue}>
+                        <Text style={styles.detailLabel}>Return</Text>
+                        <Text style={styles.detailValue}>
                           {formatDate(rental.return_at)}
                         </Text>
                       </View>
                     </View>
                   </View>
 
-                  <View style={styles.actionRow}>
-                    <TouchableOpacity
-                      style={styles.outlineButton}
-                      onPress={() =>
-                        router.push({
-                          pathname: "/rental-details",
-                          params: { rentalId: String(rental.id) },
-                        })
-                      }
-                    >
-                      <Text style={styles.outlineButtonText}>View Details</Text>
-                    </TouchableOpacity>
+                  <View style={styles.footerRow}>
+                    <Text style={styles.bookingId}>Booking #{rental.id}</Text>
 
-                    {statusName === "Pending Payment" && (
-                      <TouchableOpacity style={styles.payButton}>
-                        <Text style={styles.payButtonText}>Pay Now</Text>
-                      </TouchableOpacity>
-                    )}
+                    <View style={styles.viewDetails}>
+                      <Text style={styles.viewDetailsText}>View Details</Text>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={16}
+                        color={ORANGE}
+                      />
+                    </View>
                   </View>
-                </View>
+                </TouchableOpacity>
               );
             })}
           </View>
@@ -324,205 +346,202 @@ export default function RentalsScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#FFF7ED",
   },
   container: {
-    padding: 20,
-    paddingBottom: 90,
+    padding: 18,
+    paddingBottom: 110,
   },
   center: {
     flex: 1,
-    backgroundColor: "#FFF7ED",
-    justifyContent: "center",
     alignItems: "center",
+    justifyContent: "center",
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: 12,
     color: MUTED,
     fontWeight: "700",
   },
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 18,
   },
   pageLabel: {
-    color: MUTED,
-    fontWeight: "700",
+    fontSize: 13,
+    color: ORANGE,
+    fontWeight: "900",
+    marginBottom: 3,
   },
   title: {
-    color: DARK,
-    fontSize: 27,
+    fontSize: 28,
     fontWeight: "900",
-    marginTop: 2,
+    color: DARK,
   },
   calendarIcon: {
     width: 48,
     height: 48,
-    borderRadius: 18,
-    backgroundColor: "#FFF7ED",
+    borderRadius: 24,
+    backgroundColor: "#FFEDD5",
     alignItems: "center",
     justifyContent: "center",
   },
   filterRow: {
     gap: 10,
-    paddingVertical: 20,
+    paddingBottom: 14,
   },
   chip: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 999,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#E2E8F0",
-    paddingVertical: 9,
-    paddingHorizontal: 15,
-    borderRadius: 999,
+    borderColor: "#FED7AA",
   },
   chipActive: {
     backgroundColor: ORANGE,
     borderColor: ORANGE,
   },
   chipText: {
-    color: MUTED,
+    fontSize: 13,
     fontWeight: "800",
+    color: MUTED,
   },
   chipTextActive: {
     color: "#FFFFFF",
   },
+  emptyCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 22,
+    padding: 30,
+    alignItems: "center",
+    marginTop: 20,
+    borderWidth: 1,
+    borderColor: "#FED7AA",
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: DARK,
+    marginTop: 12,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: MUTED,
+    textAlign: "center",
+    marginTop: 6,
+    lineHeight: 21,
+  },
   list: {
-    gap: 16,
+    marginTop: 4,
   },
   rentalCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    padding: 18,
+    borderRadius: 22,
+    padding: 14,
+    marginBottom: 14,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#FFFFFF",
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  highlightCard: {
+    borderColor: ORANGE,
+    backgroundColor: "#FFFBF7",
   },
   rentalTop: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
   },
   carImageBox: {
-    width: 62,
-    height: 62,
-    borderRadius: 18,
-    backgroundColor: "#FFF7ED",
+    width: 72,
+    height: 58,
+    borderRadius: 16,
+    backgroundColor: "#FFEDD5",
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
+    marginRight: 12,
   },
   carImage: {
     width: "100%",
     height: "100%",
+    resizeMode: "cover",
   },
   rentalInfo: {
     flex: 1,
   },
   carName: {
-    color: DARK,
     fontSize: 16,
     fontWeight: "900",
+    color: DARK,
+    marginBottom: 4,
   },
   amount: {
+    fontSize: 14,
     color: ORANGE,
     fontWeight: "900",
-    marginTop: 4,
   },
   statusBadge: {
-    paddingVertical: 6,
     paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 999,
-    maxWidth: 115,
+    maxWidth: 110,
   },
   statusText: {
     fontSize: 11,
     fontWeight: "900",
     textAlign: "center",
   },
-  metaRow: {
-    flexDirection: "row",
-    gap: 14,
-    marginTop: 14,
-  },
-  metaItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-  },
-  metaText: {
-    color: MUTED,
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  timelineBox: {
-    backgroundColor: "#F8FAFC",
-    borderRadius: 18,
-    padding: 14,
-    gap: 12,
-    marginTop: 16,
-  },
-  timelineItem: {
+  detailsRow: {
     flexDirection: "row",
     gap: 10,
-    alignItems: "center",
+    marginTop: 14,
   },
-  timelineLabel: {
+  detailBox: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 16,
+    padding: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  detailLabel: {
+    fontSize: 11,
     color: MUTED,
-    fontSize: 12,
     fontWeight: "700",
   },
-  timelineValue: {
+  detailValue: {
+    fontSize: 12,
     color: DARK,
     fontWeight: "900",
     marginTop: 2,
   },
-  actionRow: {
+  footerRow: {
+    marginTop: 13,
+    paddingTop: 13,
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
     flexDirection: "row",
-    gap: 10,
-    marginTop: 16,
+    alignItems: "center",
+    justifyContent: "space-between",
   },
-  outlineButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#FDBA74",
-    borderRadius: 16,
-    paddingVertical: 13,
+  bookingId: {
+    fontSize: 12,
+    color: MUTED,
+    fontWeight: "800",
+  },
+  viewDetails: {
+    flexDirection: "row",
     alignItems: "center",
   },
-  outlineButtonText: {
+  viewDetailsText: {
+    fontSize: 13,
     color: ORANGE,
     fontWeight: "900",
-  },
-  payButton: {
-    flex: 1,
-    backgroundColor: ORANGE,
-    borderRadius: 16,
-    paddingVertical: 13,
-    alignItems: "center",
-  },
-  payButtonText: {
-    color: "#FFFFFF",
-    fontWeight: "900",
-  },
-  emptyCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    padding: 30,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    alignItems: "center",
-  },
-  emptyTitle: {
-    color: DARK,
-    fontSize: 18,
-    fontWeight: "900",
-    marginTop: 10,
-  },
-  emptyText: {
-    color: MUTED,
-    textAlign: "center",
-    marginTop: 6,
-    lineHeight: 20,
-    fontWeight: "600",
   },
 });

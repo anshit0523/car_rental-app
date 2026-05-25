@@ -1,6 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -10,117 +15,331 @@ import {
 } from "react-native";
 
 const ORANGE = "#f97316";
-const notifications: {
+const API_URL = "https://car-rental.free.laravel.cloud/api";
+
+type NotificationFilter = "all" | "unread" | "read";
+
+type UserNotification = {
   id: number;
-  type: string;
-  icon: keyof typeof Ionicons.glyphMap;
   title: string;
   message: string;
+  link?: string | null;
+  is_read: boolean;
   time: string;
-  unread: boolean;
-}[] = [
-  {
-    id: 1,
-    type: "Bookings",
-    icon: "calendar",
-    title: "Booking Confirmed",
-    message: "Your booking for Toyota Vios on May 25, 2025 is confirmed.",
-    time: "9:30 AM",
-    unread: true,
-  },
-  {
-    id: 2,
-    type: "Payments",
-    icon: "cash",
-    title: "Payment Received",
-    message: "We have received your payment of ₱2,500.00. Thank you!",
-    time: "9:15 AM",
-    unread: true,
-  },
-  {
-    id: 3,
-    type: "Bookings",
-    icon: "car",
-    title: "Vehicle Ready",
-    message: "Toyota Vios is now ready for pickup.",
-    time: "8:45 AM",
-    unread: false,
-  },
-  {
-    id: 4,
-    type: "System",
-    icon: "megaphone",
-    title: "Promo Available",
-    message: "Get 10% OFF on your next booking!",
-    time: "Yesterday",
-    unread: true,
-  },
-];
+  created_at?: string;
+};
 
 export default function NotificationsScreen() {
-  const [activeTab, setActiveTab] = useState("All");
+  const [activeTab, setActiveTab] = useState<NotificationFilter>("all");
+  const [notifications, setNotifications] = useState<UserNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
-  const filtered =
-    activeTab === "All"
-      ? notifications
-      : notifications.filter((item) => item.type === activeTab);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const getToken = async () => {
+    return await AsyncStorage.getItem("auth_token");
+  };
+
+  const fetchNotifications = async (filter: NotificationFilter = activeTab) => {
+    try {
+      const token = await getToken();
+
+      const response = await fetch(
+        `${API_URL}/notifications?filter=${filter}`,
+        {
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        Alert.alert("Error", data.message || "Failed to load notifications.");
+        return;
+      }
+
+      setNotifications(data.notifications || []);
+      setUnreadCount(data.unread_count || 0);
+    } catch {
+      Alert.alert("Error", "Something went wrong while loading notifications.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const markAllRead = async () => {
+    if (unreadCount <= 0) return;
+
+    try {
+      const token = await getToken();
+
+      const response = await fetch(`${API_URL}/notifications/mark-all-read`, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        Alert.alert("Error", data.message || "Failed to mark all as read.");
+        return;
+      }
+
+      setNotifications((prev) =>
+        prev.map((item) => ({
+          ...item,
+          is_read: true,
+        })),
+      );
+
+      setUnreadCount(0);
+    } catch {
+      Alert.alert("Error", "Something went wrong.");
+    }
+  };
+
+  const openNotification = async (notification: UserNotification) => {
+    try {
+      if (!notification.is_read) {
+        const token = await getToken();
+
+        await fetch(`${API_URL}/notifications/${notification.id}/read`, {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        setNotifications((prev) =>
+          prev.map((item) =>
+            item.id === notification.id ? { ...item, is_read: true } : item,
+          ),
+        );
+
+        setUnreadCount((prev) => Math.max(prev - 1, 0));
+      }
+
+      const link = notification.link || "";
+      const lowerLink = link.toLowerCase();
+
+      const bookingId =
+        lowerLink.match(/booking_id=(\d+)/)?.[1] ||
+        lowerLink.match(/bookings\/(\d+)/)?.[1] ||
+        lowerLink.match(/rentals\/(\d+)/)?.[1];
+
+      const paymentId =
+        lowerLink.match(/payment_id=(\d+)/)?.[1] ||
+        lowerLink.match(/payments\/(\d+)/)?.[1];
+
+      if (bookingId) {
+        router.push({
+          pathname: "/(tabs)/rentals",
+          params: { booking_id: bookingId },
+        });
+        return;
+      }
+
+      if (paymentId) {
+        router.push({
+          pathname: "/(tabs)/payments",
+          params: { payment_id: paymentId },
+        });
+        return;
+      }
+
+      if (lowerLink.includes("rentals") || lowerLink.includes("bookings")) {
+        router.push("/rentals");
+        return;
+      }
+
+      if (lowerLink.includes("payments") || lowerLink.includes("receipt")) {
+        router.push("/payments");
+        return;
+      }
+
+      if (lowerLink.includes("browse") || lowerLink.includes("cars")) {
+        router.push("/browse");
+        return;
+      }
+
+      router.push("/rentals");
+    } catch {
+      Alert.alert("Error", "Something went wrong.");
+    }
+  };
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchNotifications(activeTab);
+  }, [activeTab]);
+
+  const changeTab = (tab: NotificationFilter) => {
+    setActiveTab(tab);
+    setLoading(true);
+    fetchNotifications(tab);
+  };
+
+  const getIcon = (
+    notification: UserNotification,
+  ): keyof typeof Ionicons.glyphMap => {
+    const text = `${notification.title} ${notification.message}`.toLowerCase();
+
+    if (
+      text.includes("payment") ||
+      text.includes("paid") ||
+      text.includes("receipt")
+    ) {
+      return "wallet-outline";
+    }
+
+    if (
+      text.includes("booking") ||
+      text.includes("reserved") ||
+      text.includes("confirmed")
+    ) {
+      return "calendar-outline";
+    }
+
+    if (
+      text.includes("car") ||
+      text.includes("vehicle") ||
+      text.includes("pickup")
+    ) {
+      return "car-sport-outline";
+    }
+
+    if (text.includes("cancel")) {
+      return "close-circle-outline";
+    }
+
+    if (text.includes("return")) {
+      return "return-down-back-outline";
+    }
+
+    return "notifications-outline";
+  };
+
+  useEffect(() => {
+    fetchNotifications("all");
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Notifications</Text>
+        <View>
+          <Text style={styles.headerTitle}>Notifications</Text>
+          <Text style={styles.headerSubtitle}>
+            {unreadCount > 0
+              ? `${unreadCount} unread notification${unreadCount > 1 ? "s" : ""}`
+              : "You're all caught up"}
+          </Text>
+        </View>
 
-        <TouchableOpacity style={styles.settingsButton}>
-          <Ionicons name="settings-outline" size={22} color="#111827" />
+        <TouchableOpacity
+          style={[
+            styles.markAllButton,
+            unreadCount <= 0 && styles.markAllButtonDisabled,
+          ]}
+          onPress={markAllRead}
+          disabled={unreadCount <= 0}
+        >
+          <Ionicons name="checkmark-done-outline" size={19} color="#fff" />
         </TouchableOpacity>
       </View>
 
       <View style={styles.tabs}>
-        {["All", "Bookings", "Payments", "System"].map((tab) => (
+        {[
+          { label: "All", value: "all" },
+          { label: "Unread", value: "unread" },
+          { label: "Read", value: "read" },
+        ].map((tab) => (
           <TouchableOpacity
-            key={tab}
-            style={[styles.tab, activeTab === tab && styles.activeTab]}
-            onPress={() => setActiveTab(tab)}
+            key={tab.value}
+            style={[styles.tab, activeTab === tab.value && styles.activeTab]}
+            onPress={() => changeTab(tab.value as NotificationFilter)}
           >
             <Text
               style={[
                 styles.tabText,
-                activeTab === tab && styles.activeTabText,
+                activeTab === tab.value && styles.activeTabText,
               ]}
             >
-              {tab}
+              {tab.label}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      {filtered.length === 0 ? (
-        <View style={styles.emptyBox}>
-          <Ionicons name="notifications-outline" size={72} color="#9CA3AF" />
-          <Text style={styles.emptyTitle}>No notifications yet</Text>
-          <Text style={styles.emptyText}>
-            You’ll see booking, payment, and system updates here.
-          </Text>
+      {loading ? (
+        <View style={styles.centerBox}>
+          <ActivityIndicator size="large" color={ORANGE} />
+          <Text style={styles.loadingText}>Loading notifications...</Text>
         </View>
+      ) : notifications.length === 0 ? (
+        <ScrollView
+          contentContainerStyle={styles.emptyScroll}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
+          <View style={styles.emptyBox}>
+            <Ionicons name="notifications-outline" size={76} color="#FDBA74" />
+            <Text style={styles.emptyTitle}>No notifications yet</Text>
+            <Text style={styles.emptyText}>
+              Booking, payment, and system updates will appear here.
+            </Text>
+          </View>
+        </ScrollView>
       ) : (
-        <ScrollView contentContainerStyle={styles.list}>
-          <Text style={styles.sectionTitle}>Today</Text>
-
-          {filtered.map((item) => (
-            <TouchableOpacity key={item.id} style={styles.card}>
+        <ScrollView
+          contentContainerStyle={styles.list}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          showsVerticalScrollIndicator={false}
+        >
+          {notifications.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              style={[styles.card, !item.is_read && styles.unreadCard]}
+              onPress={() => openNotification(item)}
+              activeOpacity={0.85}
+            >
               <View style={styles.iconBox}>
-              <Ionicons name={item.icon} size={24} color={ORANGE} />
+                <Ionicons name={getIcon(item)} size={24} color={ORANGE} />
               </View>
 
               <View style={styles.content}>
-                <Text style={styles.title}>{item.title}</Text>
-                <Text style={styles.message}>{item.message}</Text>
+                <View style={styles.titleRow}>
+                  <Text style={styles.title} numberOfLines={1}>
+                    {item.title}
+                  </Text>
+
+                  {!item.is_read && <View style={styles.unreadDot} />}
+                </View>
+
+                <Text style={styles.message} numberOfLines={2}>
+                  {item.message}
+                </Text>
+
+                <Text style={styles.time}>{item.time}</Text>
               </View>
 
-              <View style={styles.rightSide}>
-                <Text style={styles.time}>{item.time}</Text>
-                {item.unread && <View style={styles.unreadDot} />}
-              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color="#CBD5E1"
+                style={styles.chevron}
+              />
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -135,48 +354,58 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF7ED",
   },
   header: {
-    height: 64,
     paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 16,
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#FED7AA",
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#FFFFFF",
+    justifyContent: "space-between",
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: "800",
+    fontSize: 23,
+    fontWeight: "900",
     color: "#111827",
   },
-  settingsButton: {
-    position: "absolute",
-    right: 20,
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+  headerSubtitle: {
+    marginTop: 4,
+    fontSize: 13,
+    color: "#64748B",
+    fontWeight: "700",
+  },
+  markAllButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: ORANGE,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#F3F4F6",
+  },
+  markAllButtonDisabled: {
+    backgroundColor: "#FDBA74",
+    opacity: 0.6,
   },
   tabs: {
     flexDirection: "row",
     backgroundColor: "#FFFFFF",
     paddingHorizontal: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
+    paddingBottom: 8,
   },
   tab: {
     flex: 1,
-    paddingVertical: 14,
+    paddingVertical: 11,
+    borderRadius: 999,
     alignItems: "center",
   },
   activeTab: {
-    borderBottomWidth: 2,
-    borderBottomColor: ORANGE,
+    backgroundColor: "#FFEDD5",
   },
   tabText: {
     fontSize: 14,
-    color: "#6B7280",
-    fontWeight: "600",
+    color: "#64748B",
+    fontWeight: "800",
   },
   activeTabText: {
     color: ORANGE,
@@ -185,12 +414,6 @@ const styles = StyleSheet.create({
     padding: 18,
     paddingBottom: 100,
   },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: "#6B7280",
-    marginBottom: 12,
-  },
   card: {
     flexDirection: "row",
     backgroundColor: "#FFFFFF",
@@ -198,10 +421,16 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 12,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#FFFFFF",
     shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
+    shadowOpacity: 0.05,
+    shadowRadius: 9,
     elevation: 2,
+  },
+  unreadCard: {
+    borderColor: "#FDBA74",
+    backgroundColor: "#FFFBF7",
   },
   iconBox: {
     width: 52,
@@ -215,31 +444,52 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   title: {
+    flex: 1,
     fontSize: 15,
-    fontWeight: "800",
+    fontWeight: "900",
     color: "#111827",
-    marginBottom: 4,
+    marginRight: 8,
   },
   message: {
     fontSize: 13,
     color: "#4B5563",
     lineHeight: 19,
-  },
-  rightSide: {
-    alignItems: "flex-end",
-    marginLeft: 8,
+    marginTop: 4,
   },
   time: {
-    fontSize: 11,
-    color: "#6B7280",
-    marginBottom: 10,
+    fontSize: 12,
+    color: "#94A3B8",
+    marginTop: 8,
+    fontWeight: "700",
   },
   unreadDot: {
     width: 9,
     height: 9,
     borderRadius: 5,
     backgroundColor: ORANGE,
+  },
+  chevron: {
+    marginLeft: 8,
+  },
+  centerBox: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: "#64748B",
+    fontWeight: "700",
+  },
+  emptyScroll: {
+    flexGrow: 1,
   },
   emptyBox: {
     flex: 1,
@@ -250,13 +500,13 @@ const styles = StyleSheet.create({
   emptyTitle: {
     marginTop: 18,
     fontSize: 20,
-    fontWeight: "800",
+    fontWeight: "900",
     color: "#111827",
   },
   emptyText: {
     marginTop: 8,
     fontSize: 14,
-    color: "#6B7280",
+    color: "#64748B",
     textAlign: "center",
     lineHeight: 22,
   },

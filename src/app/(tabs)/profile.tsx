@@ -1,6 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Link, router } from "expo-router";
+import { useEffect, useState } from "react";
 import {
+  Alert,
+  Linking,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -12,8 +16,60 @@ import {
 const ORANGE = "#F97316";
 const DARK = "#0F172A";
 const MUTED = "#64748B";
+const API_URL = "https://car-rental.free.laravel.cloud/api";
 
 export default function ProfileScreen() {
+  const [user, setUser] = useState<any>(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+
+  const fetchProfile = async () => {
+    try {
+      const token = await AsyncStorage.getItem("auth_token");
+
+      const response = await fetch(`${API_URL}/user/me`, {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setUser(data.user || data);
+      }
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  const needHelp = () => {
+    Alert.alert(
+      "Need Help?",
+      "Contact Dumaguete EZE Car Rental support.",
+      [
+        {
+          text: "Call SMART/TNT",
+          onPress: () => Linking.openURL("tel:09812255442"),
+        },
+        {
+          text: "Call TM/GLOBE",
+          onPress: () => Linking.openURL("tel:09552603041"),
+        },
+        {
+          text: "Message SMART/TNT",
+          onPress: () => Linking.openURL("sms:09812255442"),
+        },
+        { text: "Exit", style: "cancel" },
+      ],
+      { cancelable: true },
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView
@@ -29,13 +85,21 @@ export default function ProfileScreen() {
 
         <View style={styles.profileCard}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>A</Text>
+            <Text style={styles.avatarText}>
+              {(user?.name || "U").charAt(0).toUpperCase()}
+            </Text>
           </View>
 
-          <Text style={styles.name}>Arjay Customer</Text>
-          <Text style={styles.email}>arjay@example.com</Text>
+          <Text style={styles.name}>
+            {loadingProfile ? "Loading..." : user?.name || "User"}
+          </Text>
 
-          <TouchableOpacity style={styles.editButton}>
+          <Text style={styles.email}>{user?.email || "No email"}</Text>
+
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() => router.push("/edit-profile")}
+          >
             <Ionicons name="create-outline" size={17} color="#FFFFFF" />
             <Text style={styles.editButtonText}>Edit Profile</Text>
           </TouchableOpacity>
@@ -50,7 +114,9 @@ export default function ProfileScreen() {
             </View>
             <View>
               <Text style={styles.infoLabel}>Phone Number</Text>
-              <Text style={styles.infoValue}>0981 225 5442</Text>
+              <Text style={styles.infoValue}>
+                {user?.phone || "No phone number yet"}
+              </Text>
             </View>
           </View>
 
@@ -61,7 +127,7 @@ export default function ProfileScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.infoLabel}>Address</Text>
               <Text style={styles.infoValue}>
-                Dumaguete City, Negros Oriental
+                {user?.address || "No address yet"}
               </Text>
             </View>
           </View>
@@ -74,23 +140,30 @@ export default function ProfileScreen() {
             icon="notifications-outline"
             title="Notifications"
             subtitle="View booking updates"
+            onPress={() => router.push("/notifications")}
           />
+
           <MenuItem
-            icon="receipt-outline"
-            title="Receipts"
-            subtitle="View payment receipts"
+            icon="star-outline"
+            title="Rewards"
+            subtitle="View points history"
+            onPress={() => router.push("/rewards")}
           />
+
           <MenuItem
             icon="shield-checkmark-outline"
             title="Security"
             subtitle="Change password"
             onPress={() => router.push("/change-password")}
           />
+
           <MenuItem
             icon="help-circle-outline"
             title="Help & Support"
             subtitle="Contact rental support"
+            onPress={needHelp}
           />
+
           <MenuItem
             icon="information-circle-outline"
             title="About"
