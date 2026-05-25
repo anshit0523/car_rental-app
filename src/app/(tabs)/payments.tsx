@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
+import { useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import {
@@ -40,6 +41,9 @@ type PendingPayment = {
   payment_status?: {
     name?: string;
   };
+  return_issue_id?: number;
+  is_return_issue?: boolean;
+  description?: string;
 };
 
 type SelectedReceipt = {
@@ -49,6 +53,14 @@ type SelectedReceipt = {
 };
 
 export default function PaymentsScreen() {
+  const { bookingId, returnIssueId, amount } = useLocalSearchParams<{
+    bookingId?: string;
+    returnIssueId?: string;
+    amount?: string;
+  }>();
+
+  const isReturnIssuePayment = !!bookingId && !!returnIssueId;
+
   const [payments, setPayments] = useState<PendingPayment[]>([]);
   const [paymentSetting, setPaymentSetting] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -61,6 +73,34 @@ export default function PaymentsScreen() {
   useEffect(() => {
     fetchPayments();
   }, []);
+
+  const returnIssuePayment: PendingPayment | null = isReturnIssuePayment
+    ? {
+        id: -Number(returnIssueId),
+        booking_id: Number(bookingId),
+        return_issue_id: Number(returnIssueId),
+        amount: Number(amount || 0),
+        payment_date: new Date().toISOString(),
+        is_return_issue: true,
+        description: "Return Issue Charge",
+        payment_status: {
+          name: "Awaiting Payment",
+        },
+      }
+    : null;
+
+  const displayedPayments = returnIssuePayment
+    ? [
+        returnIssuePayment,
+        ...payments.filter(
+          (payment) =>
+            !(
+              Number(payment.booking_id) === Number(bookingId) &&
+              Number(payment.return_issue_id || 0) === Number(returnIssueId)
+            )
+        ),
+      ]
+    : payments;
 
   const fetchPayments = async () => {
     try {
@@ -135,17 +175,33 @@ export default function PaymentsScreen() {
 
       formData.append("booking_id", String(payment.booking_id));
       formData.append("payment_method", selectedMethod);
-      formData.append("receipt_image", {
-        uri: receipt.uri,
-        name: receipt.name,
-        type: receipt.type,
-      } as any);
+
+      if (payment.is_return_issue && payment.return_issue_id) {
+        formData.append("return_issue_id", String(payment.return_issue_id));
+        formData.append("amount", String(payment.amount || 0));
+        formData.append("receipt", {
+          uri: receipt.uri,
+          name: receipt.name,
+          type: receipt.type,
+        } as any);
+      } else {
+        formData.append("receipt_image", {
+          uri: receipt.uri,
+          name: receipt.name,
+          type: receipt.type,
+        } as any);
+      }
 
       const token = await AsyncStorage.getItem("auth_token");
 
       setUploadingId(payment.id);
 
-      const response = await fetch(`${API_URL}/payments/upload-receipt`, {
+      const uploadUrl =
+        payment.is_return_issue && payment.return_issue_id
+          ? `${API_URL}/payments/return-issue/upload-receipt`
+          : `${API_URL}/payments/upload-receipt`;
+
+      const response = await fetch(uploadUrl, {
         method: "POST",
         headers: {
           Accept: "application/json",
@@ -161,7 +217,12 @@ export default function PaymentsScreen() {
         return;
       }
 
-      Alert.alert("Success", "Receipt uploaded successfully.");
+      Alert.alert(
+        "Success",
+        payment.is_return_issue
+          ? "Return issue receipt uploaded successfully."
+          : "Receipt uploaded successfully."
+      );
 
       setSelectedReceipts((prev) => {
         const copy = { ...prev };
@@ -268,7 +329,7 @@ export default function PaymentsScreen() {
           </TouchableOpacity>
         </View>
 
-        {payments.length === 0 ? (
+        {displayedPayments.length === 0 ? (
           <View style={styles.emptyCard}>
             <Ionicons name="receipt-outline" size={42} color={ORANGE} />
             <Text style={styles.emptyTitle}>No pending payments</Text>
@@ -278,9 +339,11 @@ export default function PaymentsScreen() {
           </View>
         ) : (
           <View style={styles.list}>
-            {payments.map((payment) => {
+            {displayedPayments.map((payment) => {
               const car = payment.booking?.car;
-              const carName = `${car?.brand?.name || ""} ${car?.model || ""}`.trim();
+              const carName = payment.is_return_issue
+                ? "Return Issue Payment"
+                : `${car?.brand?.name || ""} ${car?.model || ""}`.trim();
               const selectedReceipt = selectedReceipts[payment.id];
 
               return (
@@ -289,7 +352,9 @@ export default function PaymentsScreen() {
                     <View style={{ flex: 1 }}>
                       <Text style={styles.carName}>{carName || "Car Booking"}</Text>
                       <Text style={styles.dateText}>
-                        Pickup: {formatDate(payment.booking?.pickup_at)}
+                        {payment.is_return_issue
+                          ? `Booking #${payment.booking_id}`
+                          : `Pickup: ${formatDate(payment.booking?.pickup_at)}`}
                       </Text>
                     </View>
 
@@ -297,15 +362,24 @@ export default function PaymentsScreen() {
                   </View>
 
                   <View style={styles.metaRow}>
-                    <View style={styles.metaItem}>
-                      <Ionicons name="settings-outline" size={15} color={MUTED} />
-                      <Text style={styles.metaText}>{car?.transmission?.type || "N/A"}</Text>
-                    </View>
+                    {payment.is_return_issue ? (
+                      <View style={styles.metaItem}>
+                        <Ionicons name="return-down-back-outline" size={15} color={MUTED} />
+                        <Text style={styles.metaText}>Return issue charge</Text>
+                      </View>
+                    ) : (
+                      <>
+                        <View style={styles.metaItem}>
+                          <Ionicons name="settings-outline" size={15} color={MUTED} />
+                          <Text style={styles.metaText}>{car?.transmission?.type || "N/A"}</Text>
+                        </View>
 
-                    <View style={styles.metaItem}>
-                      <Ionicons name="flame-outline" size={15} color={MUTED} />
-                      <Text style={styles.metaText}>{car?.fuel_type?.type || "N/A"}</Text>
-                    </View>
+                        <View style={styles.metaItem}>
+                          <Ionicons name="flame-outline" size={15} color={MUTED} />
+                          <Text style={styles.metaText}>{car?.fuel_type?.type || "N/A"}</Text>
+                        </View>
+                      </>
+                    )}
                   </View>
 
                   <View style={styles.statusBadge}>
