@@ -1,20 +1,27 @@
 import { useState } from "react";
-import { router, Link } from "expo-router";
+import { Link, router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
+  ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  ActivityIndicator,
 } from "react-native";
 import { API_URL } from "../lib/api/config";
+
+const ORANGE = "#F97316";
+const DARK = "#0F172A";
+const MUTED = "#64748B";
+const SOFT_BG = "#FFFBF7";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -22,8 +29,10 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const canSubmit = email.trim().length > 0 && password.length > 0 && !loading;
+
   const handleLogin = async () => {
-    if (!email || !password) {
+    if (!email.trim() || !password) {
       Alert.alert("Missing Fields", "Please enter your email and password.");
       return;
     }
@@ -38,7 +47,7 @@ export default function LoginScreen() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          email,
+          email: email.trim(),
           password,
         }),
       });
@@ -62,208 +71,280 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView
-        style={styles.wrapper}
+        style={styles.keyboardView}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <View>
-          <View style={styles.logoCircle}>
-            <Text style={styles.logoText}>EZE</Text>
-          </View>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.container}
+        >
+          <View style={styles.decorCircleTop} />
+          <View style={styles.decorCircleBottom} />
 
-          <Text style={styles.title}>Welcome Back</Text>
-          <Text style={styles.subtitle}>
-            Login to browse cars, manage bookings, and track rentals.
-          </Text>
-
-          <View style={styles.form}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your email"
-              placeholderTextColor="#94A3B8"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
+          <View style={styles.header}>
+            <Image
+              source={require("../../assets/images/logos.png")}
+              style={styles.logo}
+              resizeMode="contain"
             />
 
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.passwordWrapper}>
+            <Text style={styles.title}>Welcome Back</Text>
+            <Text style={styles.subtitle}>Login to continue your rental journey.</Text>
+          </View>
+
+          <View style={styles.card}>
+            <View style={styles.inputWrap}>
+              <Ionicons name="mail-outline" size={22} color={ORANGE} />
               <TextInput
-                style={styles.passwordInput}
-                placeholder="Enter your password"
+                style={styles.input}
+                placeholder="Email Address"
+                placeholderTextColor="#94A3B8"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                value={email}
+                onChangeText={setEmail}
+              />
+            </View>
+
+            <View style={styles.inputWrap}>
+              <Ionicons name="lock-closed-outline" size={22} color={ORANGE} />
+              <TextInput
+                style={styles.input}
+                placeholder="Password"
                 placeholderTextColor="#94A3B8"
                 secureTextEntry={!showPassword}
                 value={password}
                 onChangeText={setPassword}
+                autoCapitalize="none"
               />
 
               <TouchableOpacity
-                onPress={() => setShowPassword(!showPassword)}
+                onPress={() => setShowPassword((prev) => !prev)}
                 style={styles.eyeButton}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
                 <Ionicons
                   name={showPassword ? "eye-off-outline" : "eye-outline"}
-                  size={22}
-                  color="#64748B"
+                  size={23}
+                  color={MUTED}
                 />
               </TouchableOpacity>
             </View>
 
             <TouchableOpacity
-              style={[styles.loginButton, loading && styles.disabledButton]}
+              style={styles.forgotButton}
+              onPress={() => router.push("/forgot-password")}
+            >
+              <Text style={styles.forgotText}>Forgot Password?</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.loginButton, !canSubmit && styles.disabledButton]}
               onPress={handleLogin}
-              disabled={loading}
+              disabled={!canSubmit}
+              activeOpacity={0.86}
             >
               {loading ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.loginButtonText}>Login</Text>
+                <>
+                  <Text style={styles.loginButtonText}>Login</Text>
+                  <Ionicons name="arrow-forward" size={24} color="#FFFFFF" />
+                </>
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.guestButton}
-              onPress={() => router.push("/(tabs)/browse")}
-            >
-              <Text style={styles.guestText}>Continue as Guest</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+            <View style={styles.dividerRow}>
+              <View style={styles.divider} />
+              <Text style={styles.dividerText}>OR</Text>
+              <View style={styles.divider} />
+            </View>
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Don't have an account?</Text>
-          <Link href="/register" asChild>
-            <TouchableOpacity>
-              <Text style={styles.registerText}> Create Account</Text>
-            </TouchableOpacity>
-          </Link>
-        </View>
+            <View style={styles.createAccountPlain}>
+              <Text style={styles.registerQuestion}>Don’t have an account?</Text>
+
+              <Link href="/register" asChild>
+                <TouchableOpacity style={styles.createAccountLink} activeOpacity={0.75}>
+                  <Text style={styles.registerText}>Create Account</Text>
+                  <Ionicons name="chevron-forward" size={20} color={ORANGE} />
+                </TouchableOpacity>
+              </Link>
+            </View>
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-const ORANGE = "#F97316";
-const DARK = "#0F172A";
-
 const styles = StyleSheet.create({
+  safe: {
+    flex: 1,
+    backgroundColor: SOFT_BG,
+  },
+  keyboardView: {
+    flex: 1,
+  },
   container: {
-    flex: 1,
-    backgroundColor: "#FFF7ED",
-  },
-  wrapper: {
-    flex: 1,
-    padding: 24,
-    justifyContent: "space-between",
-  },
-  logoCircle: {
-    width: 78,
-    height: 78,
-    borderRadius: 39,
-    backgroundColor: ORANGE,
-    alignItems: "center",
+    flexGrow: 1,
+    paddingHorizontal: 22,
+    paddingTop: 14,
+    paddingBottom: 34,
     justifyContent: "center",
-    marginTop: 24,
-    marginBottom: 24,
   },
-  logoText: {
-    color: "#FFFFFF",
-    fontSize: 23,
-    fontWeight: "900",
+  decorCircleTop: {
+    position: "absolute",
+    left: -78,
+    top: -48,
+    width: 190,
+    height: 190,
+    borderRadius: 999,
+    backgroundColor: "#FFEDD5",
+    opacity: 0.24,
+  },
+  decorCircleBottom: {
+    position: "absolute",
+    right: -90,
+    bottom: 34,
+    width: 220,
+    height: 220,
+    borderRadius: 999,
+    backgroundColor: "#FED7AA",
+    opacity: 0.16,
+  },
+  header: {
+    alignItems: "center",
+    marginBottom: 26,
+  },
+  logo: {
+    width: 155,
+    height: 130,
+    marginBottom: 16,
   },
   title: {
-    fontSize: 32,
-    fontWeight: "900",
     color: DARK,
-    marginBottom: 8,
+    fontSize: 34,
+    fontWeight: "900",
+    textAlign: "center",
   },
   subtitle: {
+    marginTop: 10,
+    color: MUTED,
     fontSize: 15,
-    color: "#64748B",
-    lineHeight: 22,
-    marginBottom: 28,
+    fontWeight: "600",
+    textAlign: "center",
   },
-  form: {
+  card: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    padding: 20,
+    borderRadius: 30,
+    padding: 22,
     borderWidth: 1,
-    borderColor: "#FED7AA",
+    borderColor: "#F8E7D8",
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.07,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 4,
   },
-  label: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: DARK,
-    marginBottom: 8,
-  },
-  input: {
-    height: 52,
+  inputWrap: {
+    minHeight: 60,
+    borderRadius: 18,
+    backgroundColor: "#FFFCF9",
     borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    fontSize: 15,
-    color: DARK,
-    marginBottom: 16,
-    backgroundColor: "#FFFFFF",
-  },
-  passwordWrapper: {
-    height: 52,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    marginBottom: 16,
-    backgroundColor: "#FFFFFF",
+    borderColor: "#E7DED8",
+    paddingHorizontal: 15,
     flexDirection: "row",
     alignItems: "center",
+    gap: 12,
+    marginBottom: 14,
   },
-  passwordInput: {
+  input: {
     flex: 1,
-    fontSize: 15,
     color: DARK,
+    fontSize: 15,
+    fontWeight: "700",
+    paddingVertical: 0,
   },
   eyeButton: {
-    paddingLeft: 10,
+    width: 38,
+    height: 38,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  forgotButton: {
+    alignSelf: "flex-end",
+    marginTop: 2,
+    marginBottom: 20,
+  },
+  forgotText: {
+    color: ORANGE,
+    fontSize: 14,
+    fontWeight: "800",
   },
   loginButton: {
-    height: 54,
-    borderRadius: 18,
+    height: 58,
+    borderRadius: 17,
     backgroundColor: ORANGE,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 4,
+    flexDirection: "row",
+    gap: 12,
+    shadowColor: ORANGE,
+    shadowOpacity: 0.22,
+    shadowRadius: 13,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 4,
   },
   disabledButton: {
-    opacity: 0.7,
+    opacity: 0.62,
   },
   loginButtonText: {
     color: "#FFFFFF",
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "900",
   },
-  guestButton: {
-    marginTop: 16,
+  dividerRow: {
+    marginTop: 26,
+    marginBottom: 18,
+    flexDirection: "row",
     alignItems: "center",
+    gap: 12,
   },
-  guestText: {
-    color: "#64748B",
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#E5E7EB",
+  },
+  dividerText: {
+    color: "#737373",
+    fontSize: 13,
     fontWeight: "800",
   },
-  footer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    paddingBottom: 12,
+  createAccountPlain: {
+    alignItems: "center",
+    paddingTop: 2,
+    paddingBottom: 4,
   },
-  footerText: {
-    color: "#64748B",
+  registerQuestion: {
+    color: MUTED,
+    fontSize: 14,
     fontWeight: "700",
+    marginBottom: 8,
+  },
+  createAccountLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
   },
   registerText: {
     color: ORANGE,
+    fontSize: 16,
     fontWeight: "900",
   },
 });
