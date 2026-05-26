@@ -6,10 +6,12 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import {
   ActivityIndicator,
   Image,
+  Modal,
   Platform,
   RefreshControl,
   SafeAreaView,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -28,6 +30,7 @@ type Car = {
   fuel_type?: { type: string };
   transmission?: { type: string };
   car_type?: { type?: string; name?: string };
+  created_at?: string;
 };
 
 const ORANGE = "#F97316";
@@ -38,6 +41,8 @@ export default function BrowseCarsScreen() {
   const [cars, setCars] = useState<Car[]>([]);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
+  const [sortBy, setSortBy] = useState("price_low");
+  const [showSortModal, setShowSortModal] = useState(false);
 
   const [showFilters, setShowFilters] = useState(false);
   const [pickupDate, setPickupDate] = useState("");
@@ -53,8 +58,17 @@ export default function BrowseCarsScreen() {
     fetchCars();
   }, []);
 
-  const formatDate = (date: Date) => {
-    return date.toISOString().split("T")[0];
+  const formatDate = (date: Date) => date.toISOString().split("T")[0];
+
+  const getSortLabel = () => {
+    if (sortBy === "price_low") return "Price (Low to High)";
+    if (sortBy === "price_high") return "Price (High to Low)";
+    return "Newest";
+  };
+
+  const selectSort = (value: string) => {
+    setSortBy(value);
+    setShowSortModal(false);
   };
 
   const fetchCars = async () => {
@@ -118,7 +132,7 @@ export default function BrowseCarsScreen() {
   };
 
   const filteredCars = useMemo(() => {
-    return cars.filter((car) => {
+    let result = cars.filter((car) => {
       const brand = car.brand?.name || "";
       const model = car.model || "";
       const carType = car.car_type?.type || car.car_type?.name || "";
@@ -134,9 +148,45 @@ export default function BrowseCarsScreen() {
 
       return matchesSearch && matchesCategory;
     });
-  }, [cars, search, activeCategory]);
 
-  const categories = ["All", "Sedan", "SUV", "Van", "Automatic"];
+    if (sortBy === "price_low") {
+      result = [...result].sort(
+        (a, b) => Number(a.price_per_day || 0) - Number(b.price_per_day || 0)
+      );
+    }
+
+    if (sortBy === "price_high") {
+      result = [...result].sort(
+        (a, b) => Number(b.price_per_day || 0) - Number(a.price_per_day || 0)
+      );
+    }
+
+    if (sortBy === "newest") {
+      result = [...result].sort(
+        (a, b) =>
+          new Date(b.created_at || "").getTime() -
+          new Date(a.created_at || "").getTime()
+      );
+    }
+
+    return result;
+  }, [cars, search, activeCategory, sortBy]);
+
+  const categories = [
+    "All",
+    "Sedan",
+    "SUV",
+    "Hatchback",
+    "Pickup",
+    "Van",
+    "Automatic",
+  ];
+
+  const sortOptions = [
+    { label: "Price (Low to High)", value: "price_low" },
+    { label: "Price (High to Low)", value: "price_high" },
+    { label: "Newest", value: "newest" },
+  ];
 
   if (loading) {
     return (
@@ -160,8 +210,8 @@ export default function BrowseCarsScreen() {
       >
         <View style={styles.header}>
           <View>
-           
             <Text style={styles.title}>Available Cars</Text>
+           
           </View>
 
           <TouchableOpacity
@@ -216,9 +266,7 @@ export default function BrowseCarsScreen() {
                 display={Platform.OS === "ios" ? "spinner" : "default"}
                 minimumDate={new Date()}
                 onChange={(event, selectedDate) => {
-                  if (Platform.OS === "android") {
-                    setShowPickupPicker(false);
-                  }
+                  if (Platform.OS === "android") setShowPickupPicker(false);
 
                   if (selectedDate) {
                     const selected = formatDate(selectedDate);
@@ -234,14 +282,18 @@ export default function BrowseCarsScreen() {
 
             {showReturnPicker && (
               <DateTimePicker
-                value={returnDate ? new Date(returnDate) : pickupDate ? new Date(pickupDate) : new Date()}
+                value={
+                  returnDate
+                    ? new Date(returnDate)
+                    : pickupDate
+                    ? new Date(pickupDate)
+                    : new Date()
+                }
                 mode="date"
                 display={Platform.OS === "ios" ? "spinner" : "default"}
                 minimumDate={pickupDate ? new Date(pickupDate) : new Date()}
                 onChange={(event, selectedDate) => {
-                  if (Platform.OS === "android") {
-                    setShowReturnPicker(false);
-                  }
+                  if (Platform.OS === "android") setShowReturnPicker(false);
 
                   if (selectedDate) {
                     setReturnDate(formatDate(selectedDate));
@@ -287,6 +339,61 @@ export default function BrowseCarsScreen() {
             </TouchableOpacity>
           ))}
         </ScrollView>
+
+        <View style={styles.sortRow}>
+          <Text style={styles.sortLabel}>
+            {filteredCars.length} car{filteredCars.length === 1 ? "" : "s"} found
+          </Text>
+
+          <TouchableOpacity
+            style={styles.sortButton}
+            onPress={() => setShowSortModal(true)}
+          >
+            <Text style={styles.sortButtonText} numberOfLines={1}>
+              {getSortLabel()}
+            </Text>
+            <Ionicons name="chevron-down" size={18} color={DARK} />
+          </TouchableOpacity>
+        </View>
+
+        <Modal
+          visible={showSortModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowSortModal(false)}
+        >
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setShowSortModal(false)}
+          >
+            <View style={styles.sortModal}>
+              {sortOptions.map((item) => (
+                <TouchableOpacity
+                  key={item.value}
+                  style={[
+                    styles.sortOption,
+                    sortBy === item.value && styles.sortOptionActive,
+                  ]}
+                  onPress={() => selectSort(item.value)}
+                >
+                  <Text
+                    style={[
+                      styles.sortOptionText,
+                      sortBy === item.value && styles.sortOptionTextActive,
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
+
+                  {sortBy === item.value && (
+                    <Ionicons name="checkmark" size={18} color={ORANGE} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </TouchableOpacity>
+        </Modal>
 
         {error ? (
           <View style={styles.emptyBox}>
@@ -389,6 +496,7 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: "#F8FAFC",
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
   },
   container: {
     padding: 20,
@@ -407,18 +515,19 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-  },
-  pageLabel: {
-    color: MUTED,
-    fontSize: 14,
-    fontWeight: "700",
+    alignItems: "flex-start",
+    gap: 12,
   },
   title: {
-    fontSize: 27,
+    fontSize: 32,
     fontWeight: "900",
     color: DARK,
+  },
+  resultText: {
     marginTop: 2,
+    color: MUTED,
+    fontSize: 15,
+    fontWeight: "700",
   },
   filterButton: {
     width: 46,
@@ -429,13 +538,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
     borderColor: "#E2E8F0",
+    marginTop: 4,
   },
   searchBox: {
-    marginTop: 20,
+    marginTop: 22,
     backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    height: 58,
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
@@ -518,11 +628,12 @@ const styles = StyleSheet.create({
   },
   categoryRow: {
     gap: 10,
-    paddingVertical: 18,
+    paddingTop: 18,
+    paddingBottom: 12,
   },
   categoryChip: {
-    paddingVertical: 9,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 17,
     borderRadius: 999,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
@@ -538,6 +649,68 @@ const styles = StyleSheet.create({
   },
   categoryTextActive: {
     color: "#FFFFFF",
+  },
+  sortRow: {
+    marginBottom: 14,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 12,
+  },
+  sortLabel: {
+    flex: 1,
+    color: MUTED,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  sortButton: {
+    width: 205,
+    height: 44,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    paddingHorizontal: 13,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  sortButtonText: {
+    flex: 1,
+    color: DARK,
+    fontSize: 13,
+    fontWeight: "800",
+    marginRight: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.25)",
+    justifyContent: "center",
+    padding: 24,
+  },
+  sortModal: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 22,
+    padding: 8,
+  },
+  sortOption: {
+    minHeight: 50,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  sortOptionActive: {
+    backgroundColor: "#FFF7ED",
+  },
+  sortOptionText: {
+    color: DARK,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  sortOptionTextActive: {
+    color: ORANGE,
   },
   list: {
     gap: 14,

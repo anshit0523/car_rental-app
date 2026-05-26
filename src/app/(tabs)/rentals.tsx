@@ -1,13 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, Stack } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
+  Platform,
   RefreshControl,
   SafeAreaView,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -46,12 +48,7 @@ const tabs = [
   { label: "Failed", value: "Failed" },
 ];
 
-const RETURN_STATUSES = [
-  "Return",
-  "Checkup",
-  "Damage",
-  "Needs Repair",
-];
+const RETURN_STATUSES = ["Return", "Checkup", "Damage", "Needs Repair"];
 
 function getStatusStyle(status?: string) {
   const name = (status || "").toLowerCase();
@@ -91,8 +88,6 @@ export default function RentalsScreen() {
   const [activeTab, setActiveTab] = useState("all");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  
-  
 
   const autoOpenedBookingId = useRef<string | null>(null);
 
@@ -193,6 +188,7 @@ export default function RentalsScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safe}>
+        <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.center}>
           <ActivityIndicator size="large" color={ORANGE} />
           <Text style={styles.loadingText}>Loading rentals...</Text>
@@ -203,6 +199,8 @@ export default function RentalsScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <Stack.Screen options={{ headerShown: false }} />
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.container}
@@ -212,7 +210,6 @@ export default function RentalsScreen() {
       >
         <View style={styles.header}>
           <View>
-            <Text style={styles.pageLabel}>Rentals</Text>
             <Text style={styles.title}>My Rentals</Text>
           </View>
 
@@ -376,6 +373,7 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: "#FFF7ED",
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
   },
   container: {
     padding: 18,
@@ -396,12 +394,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 18,
-  },
-  pageLabel: {
-    fontSize: 13,
-    color: ORANGE,
-    fontWeight: "900",
-    marginBottom: 3,
   },
   title: {
     fontSize: 28,

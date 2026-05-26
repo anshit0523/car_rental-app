@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { Link, router, useLocalSearchParams } from "expo-router";
+import { Link, router, Stack, useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   ActivityIndicator,
   Image,
+  Platform,
   SafeAreaView,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -53,6 +55,7 @@ export default function CarDetailsScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safe}>
+        <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.centerBox}>
           <ActivityIndicator size="large" color={ORANGE} />
           <Text style={styles.loadingText}>Loading car details...</Text>
@@ -64,6 +67,7 @@ export default function CarDetailsScreen() {
   if (!car) {
     return (
       <SafeAreaView style={styles.safe}>
+        <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.centerBox}>
           <Text style={styles.errorText}>Car details not found.</Text>
           <TouchableOpacity style={styles.bookButton} onPress={() => router.back()}>
@@ -79,7 +83,12 @@ export default function CarDetailsScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.container}>
+      <Stack.Screen options={{ headerShown: false }} />
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.container}
+      >
         <View style={styles.topBar}>
           <TouchableOpacity style={styles.iconButton} onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={24} color={DARK} />
@@ -127,7 +136,9 @@ export default function CarDetailsScreen() {
 
             <View style={styles.specItem}>
               <Ionicons name="settings-outline" size={22} color={ORANGE} />
-              <Text style={styles.specValue}>{car.transmission?.type || "N/A"}</Text>
+              <Text style={styles.specValue}>
+                {car.transmission?.type || "N/A"}
+              </Text>
               <Text style={styles.specLabel}>Transmission</Text>
             </View>
 
@@ -140,8 +151,8 @@ export default function CarDetailsScreen() {
 
           <Text style={styles.sectionTitle}>Description</Text>
           <Text style={styles.description}>
-            A comfortable and reliable rental car suitable for city travel, business trips,
-            family use, and daily transportation.
+            A comfortable and reliable rental car suitable for city travel,
+            business trips, family use, and daily transportation.
           </Text>
 
           <Text style={styles.sectionTitle}>Rental Includes</Text>
@@ -185,12 +196,37 @@ export default function CarDetailsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#F8FAFC" },
-  container: { padding: 20, paddingBottom: 120 },
-  centerBox: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
-  loadingText: { marginTop: 10, color: MUTED, fontWeight: "700" },
-  errorText: { color: DARK, fontSize: 16, fontWeight: "800", marginBottom: 16 },
-  topBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  safe: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
+  },
+  container: {
+    padding: 20,
+    paddingBottom: 120,
+  },
+  centerBox: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  loadingText: {
+    marginTop: 10,
+    color: MUTED,
+    fontWeight: "700",
+  },
+  errorText: {
+    color: DARK,
+    fontSize: 16,
+    fontWeight: "800",
+    marginBottom: 16,
+  },
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   iconButton: {
     width: 44,
     height: 44,
@@ -201,7 +237,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E2E8F0",
   },
-  topTitle: { fontSize: 17, fontWeight: "900", color: DARK },
+  topTitle: {
+    fontSize: 17,
+    fontWeight: "900",
+    color: DARK,
+  },
   carImage: {
     height: 220,
     marginTop: 20,
@@ -211,7 +251,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     overflow: "hidden",
   },
-  image: { width: "100%", height: "100%" },
+  image: {
+    width: "100%",
+    height: "100%",
+  },
   card: {
     marginTop: 18,
     backgroundColor: "#FFFFFF",
@@ -220,9 +263,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E2E8F0",
   },
-  nameRow: { flexDirection: "row", justifyContent: "space-between", gap: 10 },
-  carName: { fontSize: 25, fontWeight: "900", color: DARK },
-  carType: { color: MUTED, marginTop: 4, fontWeight: "700" },
+  nameRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  carName: {
+    fontSize: 25,
+    fontWeight: "900",
+    color: DARK,
+  },
+  carType: {
+    color: MUTED,
+    marginTop: 4,
+    fontWeight: "700",
+  },
   availableBadge: {
     backgroundColor: "#DCFCE7",
     paddingVertical: 7,
@@ -230,9 +285,22 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     height: 32,
   },
-  availableText: { color: "#166534", fontSize: 12, fontWeight: "900" },
-  price: { marginTop: 14, fontSize: 22, fontWeight: "900", color: ORANGE },
-  specGrid: { flexDirection: "row", gap: 10, marginTop: 18 },
+  availableText: {
+    color: "#166534",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  price: {
+    marginTop: 14,
+    fontSize: 22,
+    fontWeight: "900",
+    color: ORANGE,
+  },
+  specGrid: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 18,
+  },
   specItem: {
     flex: 1,
     backgroundColor: "#F8FAFC",
@@ -240,33 +308,81 @@ const styles = StyleSheet.create({
     padding: 14,
     alignItems: "center",
   },
-  specValue: { color: DARK, fontWeight: "900", marginTop: 8, fontSize: 15 },
-  specLabel: { color: MUTED, fontSize: 11, marginTop: 3, fontWeight: "700" },
-  sectionTitle: { marginTop: 22, marginBottom: 8, fontSize: 17, fontWeight: "900", color: DARK },
-  description: { color: MUTED, lineHeight: 22, fontSize: 14 },
-  includeItem: { flexDirection: "row", alignItems: "center", gap: 9, marginTop: 10 },
-  includeText: { color: DARK, fontSize: 14, fontWeight: "700" },
+  specValue: {
+    marginTop: 8,
+    color: DARK,
+    fontSize: 15,
+    fontWeight: "900",
+    textAlign: "center",
+  },
+  specLabel: {
+    marginTop: 3,
+    color: MUTED,
+    fontSize: 11,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  sectionTitle: {
+    marginTop: 22,
+    marginBottom: 8,
+    color: DARK,
+    fontSize: 17,
+    fontWeight: "900",
+  },
+  description: {
+    color: MUTED,
+    fontSize: 14,
+    fontWeight: "600",
+    lineHeight: 22,
+  },
+  includeItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+    marginTop: 10,
+  },
+  includeText: {
+    flex: 1,
+    color: DARK,
+    fontSize: 14,
+    fontWeight: "700",
+  },
   footer: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
+    padding: 18,
+    paddingBottom: 24,
     backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
     borderTopColor: "#E2E8F0",
-    padding: 18,
-    paddingBottom: 24,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  footerLabel: { color: MUTED, fontSize: 12, fontWeight: "700" },
-  footerPrice: { color: DARK, fontSize: 20, fontWeight: "900" },
+  footerLabel: {
+    color: MUTED,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  footerPrice: {
+    marginTop: 2,
+    color: ORANGE,
+    fontSize: 19,
+    fontWeight: "900",
+  },
   bookButton: {
     backgroundColor: ORANGE,
-    paddingVertical: 15,
-    paddingHorizontal: 32,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
     borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  bookButtonText: { color: "#FFFFFF", fontWeight: "900", fontSize: 15 },
+  bookButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "900",
+    fontSize: 15,
+  },
 });

@@ -1,12 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router } from "expo-router";
+import { router, Stack } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Platform,
   RefreshControl,
   SafeAreaView,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -164,6 +166,8 @@ export default function RewardsScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <Stack.Screen options={{ headerShown: false }} />
+
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={25} color="#111827" />
@@ -189,9 +193,7 @@ export default function RewardsScreen() {
         >
           <View style={styles.balanceCard}>
             <Text style={styles.balanceLabel}>Current Balance</Text>
-            <Text style={styles.balanceValue}>
-              {formatNumber(currentBalance)}
-            </Text>
+            <Text style={styles.balanceValue}>{formatNumber(currentBalance)}</Text>
             <Text style={styles.balanceUnit}>Points</Text>
 
             <View style={styles.discountBox}>
@@ -341,13 +343,14 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: "#F8FAFC",
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
   },
   header: {
     height: 64,
     paddingHorizontal: 20,
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
+    backgroundColor: "#F8FAFC",
+    
+   
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -447,9 +450,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 13,
     lineHeight: 19,
-  },
-  historyHeader: {
-    marginBottom: 10,
   },
   sectionTitle: {
     fontSize: 21,

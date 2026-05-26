@@ -1,12 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Link, router } from "expo-router";
+import { Link, router, Stack } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   Alert,
   Linking,
+  Platform,
   SafeAreaView,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -66,10 +68,9 @@ export default function ProfileScreen() {
         },
         { text: "Exit", style: "cancel" },
       ],
-      { cancelable: true },
+      { cancelable: true }
     );
   };
-
 
   const logout = () => {
     Alert.alert(
@@ -114,6 +115,8 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <Stack.Screen options={{ headerShown: false }} />
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.container}
@@ -260,10 +263,11 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: "#F8FAFC",
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
   },
   container: {
     padding: 20,
-    paddingBottom: 90,
+    paddingBottom: 100,
   },
   header: {
     flexDirection: "row",
@@ -272,7 +276,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: DARK,
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: "900",
   },
   settingsButton: {

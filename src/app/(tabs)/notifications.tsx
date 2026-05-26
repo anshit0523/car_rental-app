@@ -1,13 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router } from "expo-router";
+import { router, Stack } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   RefreshControl,
   SafeAreaView,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -45,15 +47,12 @@ export default function NotificationsScreen() {
     try {
       const token = await getToken();
 
-      const response = await fetch(
-        `${API_URL}/notifications?filter=${filter}`,
-        {
-          headers: {
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+      const response = await fetch(`${API_URL}/notifications?filter=${filter}`, {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
         },
-      );
+      });
 
       const data = await response.json();
 
@@ -97,7 +96,7 @@ export default function NotificationsScreen() {
         prev.map((item) => ({
           ...item,
           is_read: true,
-        })),
+        }))
       );
 
       setUnreadCount(0);
@@ -121,8 +120,8 @@ export default function NotificationsScreen() {
 
         setNotifications((prev) =>
           prev.map((item) =>
-            item.id === notification.id ? { ...item, is_read: true } : item,
-          ),
+            item.id === notification.id ? { ...item, is_read: true } : item
+          )
         );
 
         setUnreadCount((prev) => Math.max(prev - 1, 0));
@@ -198,7 +197,7 @@ export default function NotificationsScreen() {
   };
 
   const getIcon = (
-    notification: UserNotification,
+    notification: UserNotification
   ): keyof typeof Ionicons.glyphMap => {
     const text = `${notification.title} ${notification.message}`.toLowerCase();
 
@@ -243,6 +242,8 @@ export default function NotificationsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <Stack.Screen options={{ headerShown: false }} />
+
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>Notifications</Text>
@@ -360,7 +361,8 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFF7ED",
+    backgroundColor: "#FFFFFF",
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
   },
   header: {
     paddingHorizontal: 20,

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
+import { router,Stack, useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   ActivityIndicator,
@@ -8,8 +8,10 @@ import {
   Image,
   Linking,
   Modal,
+  Platform,
   SafeAreaView,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -285,6 +287,7 @@ export default function RentalDetailsScreen() {
   if (!rental) {
     return (
       <SafeAreaView style={styles.safe}>
+       
         <View style={styles.center}>
           <Text style={styles.emptyTitle}>Rental not found</Text>
           <TouchableOpacity
@@ -716,6 +719,7 @@ export default function RentalDetailsScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <Stack.Screen options={{ headerShown: false }} />
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.container}
@@ -852,6 +856,7 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: "#F8FAFC",
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
   },
   container: {
     padding: 20,

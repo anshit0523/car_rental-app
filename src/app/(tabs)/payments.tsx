@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams } from "expo-router";
+import { Stack, useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import {
@@ -8,9 +8,11 @@ import {
   Alert,
   Image,
   Modal,
+  Platform,
   RefreshControl,
   SafeAreaView,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -109,7 +111,7 @@ export default function PaymentsScreen() {
     ? [
         returnIssuePayment,
         ...payments.filter(
-          (payment) => Number(payment.return_issue_id || 0) !== Number(returnIssueId),
+          (payment) => Number(payment.return_issue_id || 0) !== Number(returnIssueId)
         ),
       ]
     : payments;
@@ -283,6 +285,7 @@ export default function PaymentsScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safe}>
+        <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.center}>
           <ActivityIndicator size="large" color={ORANGE} />
           <Text style={styles.loadingText}>Loading payments...</Text>
@@ -293,6 +296,8 @@ export default function PaymentsScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <Stack.Screen options={{ headerShown: false }} />
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.container}
@@ -300,7 +305,6 @@ export default function PaymentsScreen() {
       >
         <View style={styles.header}>
           <View>
-            <Text style={styles.pageLabel}>Payments</Text>
             <Text style={styles.title}>Pending Payments</Text>
           </View>
 
@@ -533,6 +537,7 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: "#F8FAFC",
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
   },
   container: {
     padding: 20,
@@ -553,10 +558,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-  },
-  pageLabel: {
-    color: MUTED,
-    fontWeight: "700",
+    marginBottom: 18,
   },
   title: {
     color: DARK,
@@ -573,7 +575,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   infoCard: {
-    marginTop: 20,
     backgroundColor: "#FFF7ED",
     borderRadius: 20,
     padding: 16,

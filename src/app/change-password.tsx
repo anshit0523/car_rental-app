@@ -1,12 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router } from "expo-router";
+import { router, Stack } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Keyboard,
+  Platform,
   SafeAreaView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -179,6 +181,8 @@ export default function ChangePasswordScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <Stack.Screen options={{ headerShown: false }} />
+
       {step !== 4 && (
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
@@ -395,6 +399,7 @@ function PasswordInput({
           secureTextEntry={!visible}
           value={value}
           onChangeText={onChangeText}
+          placeholderTextColor="#94A3B8"
         />
 
         <TouchableOpacity onPress={() => setVisible(!visible)}>
@@ -429,11 +434,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#FFF7ED",
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
   },
   header: {
     height: 64,
     paddingHorizontal: 20,
-    backgroundColor: "#fff",
+    backgroundColor: "#FFF7ED",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",

@@ -1,12 +1,12 @@
-
-
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, Stack } from "expo-router";
 import {
   Image,
   Linking,
+  Platform,
   SafeAreaView,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -52,6 +52,8 @@ export default function AboutEzeScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <Stack.Screen options={{ headerShown: false }} />
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.container}
@@ -179,6 +181,7 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: "#FFFDFB",
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
   },
   container: {
     paddingHorizontal: 18,

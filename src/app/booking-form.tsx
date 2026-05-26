@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import {
@@ -11,6 +11,7 @@ import {
   Platform,
   SafeAreaView,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -66,8 +67,6 @@ export default function BookingFormScreen() {
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
 
-  
-
   useEffect(() => {
     loadInitialData();
   }, []);
@@ -112,9 +111,7 @@ export default function BookingFormScreen() {
     }
   };
 
-  const formatDate = (date: Date) => {
-    return date.toISOString().split("T")[0];
-  };
+  const formatDate = (date: Date) => date.toISOString().split("T")[0];
 
   const formatTime = (date: Date) => {
     const hours = String(date.getHours()).padStart(2, "0");
@@ -304,6 +301,7 @@ export default function BookingFormScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safe}>
+        <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={ORANGE} />
           <Text style={styles.loadingText}>Loading booking form...</Text>
@@ -317,6 +315,8 @@ export default function BookingFormScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <Stack.Screen options={{ headerShown: false }} />
+
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.container}>
         <View style={styles.topBar}>
           <TouchableOpacity style={styles.iconButton} onPress={() => router.back()}>
@@ -407,6 +407,7 @@ export default function BookingFormScreen() {
               minimumDate={new Date()}
               onChange={(event, selectedDate) => {
                 if (Platform.OS === "android") setShowPickupDatePicker(false);
+
                 if (selectedDate) {
                   setPickupDate(selectedDate);
 
@@ -578,8 +579,6 @@ export default function BookingFormScreen() {
           </View>
         </View>
 
-
-
         <View style={styles.termsCard}>
           <View style={styles.termsHeader}>
             <View style={styles.termsIconBox}>
@@ -618,45 +617,45 @@ export default function BookingFormScreen() {
         </View>
 
         <Modal
-  visible={showTermsModal}
-  animationType="slide"
-  transparent
-  onRequestClose={() => setShowTermsModal(false)}
->
-  <View style={styles.modalOverlay}>
-    <View style={styles.modalCard}>
-      <View style={styles.modalHeader}>
-        <Text style={styles.modalTitle}>Terms & Conditions</Text>
-
-        <TouchableOpacity onPress={() => setShowTermsModal(false)}>
-          <Ionicons name="close" size={24} color={DARK} />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {TERMS.map((term, index) => (
-          <View key={index} style={styles.termItem}>
-            <View style={styles.termNumber}>
-              <Text style={styles.termNumberText}>{index + 1}</Text>
-            </View>
-
-            <Text style={styles.termText}>{term}</Text>
-          </View>
-        ))}
-
-        <TouchableOpacity
-          style={styles.modalAgreeButton}
-          onPress={() => {
-            setAgreeTerms(true);
-            setShowTermsModal(false);
-          }}
+          visible={showTermsModal}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setShowTermsModal(false)}
         >
-          <Text style={styles.modalAgreeText}>I Agree</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </View>
-  </View>
-</Modal>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Terms & Conditions</Text>
+
+                <TouchableOpacity onPress={() => setShowTermsModal(false)}>
+                  <Ionicons name="close" size={24} color={DARK} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {TERMS.map((term, index) => (
+                  <View key={index} style={styles.termItem}>
+                    <View style={styles.termNumber}>
+                      <Text style={styles.termNumberText}>{index + 1}</Text>
+                    </View>
+
+                    <Text style={styles.termText}>{term}</Text>
+                  </View>
+                ))}
+
+                <TouchableOpacity
+                  style={styles.modalAgreeButton}
+                  onPress={() => {
+                    setAgreeTerms(true);
+                    setShowTermsModal(false);
+                  }}
+                >
+                  <Text style={styles.modalAgreeText}>I Agree</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
 
         <TouchableOpacity
           style={[styles.confirmButton, (!agreeTerms || checking) && styles.confirmButtonDisabled]}
@@ -678,6 +677,7 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: "#F8FAFC",
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
   },
   loadingContainer: {
     flex: 1,
@@ -936,12 +936,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "900",
   },
-  termsRow: {
-    marginTop: 22,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
   checkbox: {
     width: 24,
     height: 24,
@@ -978,128 +972,125 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     fontSize: 16,
   },
-
   termsCard: {
-  marginTop: 22,
-  backgroundColor: "#FFFFFF",
-  borderRadius: 22,
-  padding: 16,
-  borderWidth: 1,
-  borderColor: "#FED7AA",
-},
-termsHeader: {
-  flexDirection: "row",
-  alignItems: "center",
-  gap: 12,
-},
-termsIconBox: {
-  width: 46,
-  height: 46,
-  borderRadius: 15,
-  backgroundColor: "#FFF7ED",
-  alignItems: "center",
-  justifyContent: "center",
-},
-termsTitle: {
-  color: DARK,
-  fontSize: 15,
-  fontWeight: "900",
-},
-termsSubtitle: {
-  color: MUTED,
-  fontSize: 12,
-  fontWeight: "700",
-  marginTop: 3,
-  lineHeight: 18,
-},
-viewTermsButton: {
-  marginTop: 14,
-  paddingVertical: 13,
-  paddingHorizontal: 14,
-  borderRadius: 15,
-  backgroundColor: "#FFF7ED",
-  borderWidth: 1,
-  borderColor: "#FED7AA",
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "space-between",
-},
-viewTermsText: {
-  color: ORANGE,
-  fontWeight: "900",
-},
-agreeRow: {
-  marginTop: 14,
-  flexDirection: "row",
-  alignItems: "flex-start",
-  gap: 10,
-},
-modalOverlay: {
-  flex: 1,
-  backgroundColor: "rgba(15, 23, 42, 0.45)",
-  justifyContent: "flex-end",
-},
-modalCard: {
-  maxHeight: "86%",
-  backgroundColor: "#FFFFFF",
-  borderTopLeftRadius: 28,
-  borderTopRightRadius: 28,
-  padding: 20,
-},
-modalHeader: {
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "space-between",
-  marginBottom: 16,
-},
-modalTitle: {
-  fontSize: 20,
-  fontWeight: "900",
-  color: DARK,
-},
-termItem: {
-  flexDirection: "row",
-  gap: 12,
-  padding: 14,
-  borderRadius: 16,
-  backgroundColor: "#F8FAFC",
-  borderWidth: 1,
-  borderColor: "#E2E8F0",
-  marginBottom: 10,
-},
-termNumber: {
-  width: 30,
-  height: 30,
-  borderRadius: 10,
-  backgroundColor: "#FFF7ED",
-  alignItems: "center",
-  justifyContent: "center",
-},
-termNumberText: {
-  color: ORANGE,
-  fontWeight: "900",
-},
-termText: {
-  flex: 1,
-  color: DARK,
-  fontSize: 13,
-  fontWeight: "700",
-  lineHeight: 20,
-},
-modalAgreeButton: {
-  height: 54,
-  borderRadius: 16,
-  backgroundColor: ORANGE,
-  alignItems: "center",
-  justifyContent: "center",
-  marginTop: 10,
-  marginBottom: 20,
-},
-modalAgreeText: {
-  color: "#FFFFFF",
-  fontWeight: "900",
-  fontSize: 15,
-},
-
+    marginTop: 22,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 22,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#FED7AA",
+  },
+  termsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  termsIconBox: {
+    width: 46,
+    height: 46,
+    borderRadius: 15,
+    backgroundColor: "#FFF7ED",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  termsTitle: {
+    color: DARK,
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  termsSubtitle: {
+    color: MUTED,
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 3,
+    lineHeight: 18,
+  },
+  viewTermsButton: {
+    marginTop: 14,
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+    borderRadius: 15,
+    backgroundColor: "#FFF7ED",
+    borderWidth: 1,
+    borderColor: "#FED7AA",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  viewTermsText: {
+    color: ORANGE,
+    fontWeight: "900",
+  },
+  agreeRow: {
+    marginTop: 14,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.45)",
+    justifyContent: "flex-end",
+  },
+  modalCard: {
+    maxHeight: "86%",
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "900",
+    color: DARK,
+  },
+  termItem: {
+    flexDirection: "row",
+    gap: 12,
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginBottom: 10,
+  },
+  termNumber: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    backgroundColor: "#FFF7ED",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  termNumberText: {
+    color: ORANGE,
+    fontWeight: "900",
+  },
+  termText: {
+    flex: 1,
+    color: DARK,
+    fontSize: 13,
+    fontWeight: "700",
+    lineHeight: 20,
+  },
+  modalAgreeButton: {
+    height: 54,
+    borderRadius: 16,
+    backgroundColor: ORANGE,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  modalAgreeText: {
+    color: "#FFFFFF",
+    fontWeight: "900",
+    fontSize: 15,
+  },
 });
-
