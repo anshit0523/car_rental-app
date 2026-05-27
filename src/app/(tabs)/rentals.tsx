@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useLocalSearchParams, Stack } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -84,6 +84,11 @@ function getStatusStyle(status?: string) {
 export default function RentalsScreen() {
   const { booking_id } = useLocalSearchParams();
 
+  const bookingIdString = useMemo(() => {
+    if (!booking_id) return null;
+    return Array.isArray(booking_id) ? booking_id[0] : String(booking_id);
+  }, [booking_id]);
+
   const [rentals, setRentals] = useState<Rental[]>([]);
   const [activeTab, setActiveTab] = useState("all");
   const [loading, setLoading] = useState(true);
@@ -91,17 +96,14 @@ export default function RentalsScreen() {
 
   const autoOpenedBookingId = useRef<string | null>(null);
 
+  // Single effect: fetch when tab changes, always fetch all if bookingIdString is present
   useEffect(() => {
-    fetchRentals(activeTab);
-  }, [activeTab]);
+    fetchRentals(activeTab, bookingIdString);
+  }, [activeTab, bookingIdString]);
 
+  // After fetch completes, auto-navigate to the specific booking
   useEffect(() => {
-    if (!booking_id || rentals.length === 0) return;
-
-    const bookingIdString = Array.isArray(booking_id)
-      ? booking_id[0]
-      : booking_id;
-
+    if (!bookingIdString || rentals.length === 0 || loading) return;
     if (autoOpenedBookingId.current === bookingIdString) return;
 
     const selectedRental = rentals.find(
@@ -110,19 +112,21 @@ export default function RentalsScreen() {
 
     if (selectedRental) {
       autoOpenedBookingId.current = bookingIdString;
-
       router.push({
         pathname: "/rental-details",
         params: { rentalId: String(selectedRental.id) },
       });
     }
-  }, [booking_id, rentals]);
+  }, [bookingIdString, rentals, loading]);
 
-  const fetchRentals = async (status: string) => {
+  // fetchRentals now accepts targetBookingId explicitly — no stale closure issues
+  const fetchRentals = async (status: string, targetBookingId?: string | null) => {
     try {
       const token = await AsyncStorage.getItem("auth_token");
 
-      const shouldFetchAll = status === "all" || status === "return_group";
+      // Always fetch all rentals when coming from a notification deep link
+      const shouldFetchAll =
+        Boolean(targetBookingId) || status === "all" || status === "return_group";
 
       const url = shouldFetchAll
         ? `${API_URL}/rentals`
@@ -140,7 +144,7 @@ export default function RentalsScreen() {
       if (data.success) {
         const rentalList = data.bookings?.data || data.bookings || [];
 
-        if (status === "return_group") {
+        if (!targetBookingId && status === "return_group") {
           setRentals(
             rentalList.filter((rental: Rental) =>
               RETURN_STATUSES.includes(rental.status?.name || "")
@@ -161,7 +165,7 @@ export default function RentalsScreen() {
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchRentals(activeTab);
+    fetchRentals(activeTab, bookingIdString);
   };
 
   const formatAmount = (amount?: number) => {
@@ -231,6 +235,7 @@ export default function RentalsScreen() {
                 activeTab === tab.value && styles.chipActive,
               ]}
               onPress={() => {
+                autoOpenedBookingId.current = null;
                 setLoading(true);
                 setActiveTab(tab.value);
               }}
@@ -263,14 +268,14 @@ export default function RentalsScreen() {
               const carName =
                 `${rental.car?.brand || ""} ${rental.car?.model || ""}`.trim();
               const imageUrl = rental.car?.images?.[0];
+              const isHighlighted = String(rental.id) === String(bookingIdString);
 
               return (
                 <TouchableOpacity
                   key={rental.id}
                   style={[
                     styles.rentalCard,
-                    String(rental.id) === String(booking_id) &&
-                      styles.highlightCard,
+                    isHighlighted && styles.highlightCard,
                   ]}
                   activeOpacity={0.85}
                   onPress={() => openRentalDetails(rental)}

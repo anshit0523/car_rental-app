@@ -26,6 +26,9 @@ type UserNotification = {
   title: string;
   message: string;
   link?: string | null;
+  booking_id?: number | string | null;
+  payment_id?: number | string | null;
+  type?: string | null;
   is_read: boolean;
   time: string;
   created_at?: string;
@@ -131,18 +134,21 @@ export default function NotificationsScreen() {
       const lowerLink = link.toLowerCase();
 
       const bookingId =
+        notification.booking_id ||
         lowerLink.match(/booking_id=(\d+)/)?.[1] ||
         lowerLink.match(/bookings\/(\d+)/)?.[1] ||
+        lowerLink.match(/booking\/confirmation\/(\d+)/)?.[1] ||
         lowerLink.match(/rentals\/(\d+)/)?.[1];
 
       const paymentId =
+        notification.payment_id ||
         lowerLink.match(/payment_id=(\d+)/)?.[1] ||
         lowerLink.match(/payments\/(\d+)/)?.[1];
 
       if (bookingId) {
         router.push({
           pathname: "/(tabs)/rentals",
-          params: { booking_id: bookingId },
+          params: { booking_id: String(bookingId) },
         });
         return;
       }
@@ -159,7 +165,7 @@ export default function NotificationsScreen() {
       if (paymentId) {
         router.push({
           pathname: "/(tabs)/payments",
-          params: { payment_id: paymentId },
+          params: { payment_id: String(paymentId) },
         });
         return;
       }

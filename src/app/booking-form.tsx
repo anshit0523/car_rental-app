@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { Calendar } from "react-native-calendars";
 import {
   ActivityIndicator,
   Alert,
@@ -54,10 +55,12 @@ export default function BookingFormScreen() {
   const [pickupTime, setPickupTime] = useState<Date>(new Date());
   const [returnTime, setReturnTime] = useState<Date>(new Date());
 
-  const [showPickupDatePicker, setShowPickupDatePicker] = useState(false);
-  const [showReturnDatePicker, setShowReturnDatePicker] = useState(false);
   const [showPickupTimePicker, setShowPickupTimePicker] = useState(false);
   const [showReturnTimePicker, setShowReturnTimePicker] = useState(false);
+
+  const [blockedDates, setBlockedDates] = useState<string[]>([]);
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [calendarMode, setCalendarMode] = useState<"pickup" | "return">("pickup");
 
   const [serviceTypeId, setServiceTypeId] = useState("");
   const [serviceTypes, setServiceTypes] = useState<any[]>([]);
@@ -82,6 +85,7 @@ export default function BookingFormScreen() {
       }
 
       await fetchCarDetails();
+      await loadUnavailableDates();
     } catch (error) {
       console.log(error);
     } finally {
@@ -111,6 +115,27 @@ export default function BookingFormScreen() {
     }
   };
 
+  const loadUnavailableDates = async () => {
+    try {
+      const token = await AsyncStorage.getItem("auth_token");
+
+      const response = await fetch(`${API_URL}/cars/${carId}/unavailable-dates`, {
+        headers: {
+          Accept: "application/json",
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setBlockedDates(data.unavailable_dates || []);
+      }
+    } catch (error) {
+      console.log("Failed to load unavailable dates", error);
+    }
+  };
+
   const formatDate = (date: Date) => date.toISOString().split("T")[0];
 
   const formatTime = (date: Date) => {
@@ -135,6 +160,63 @@ export default function BookingFormScreen() {
       minute: "2-digit",
     });
   };
+
+  const parseCalendarDate = (dateString: string) => {
+    const [year, month, day] = dateString.split("-").map(Number);
+    return new Date(year, month - 1, day);
+  };
+
+  const toCalendarDate = (date: Date | null) => {
+    if (!date) return "";
+    return formatDate(date);
+  };
+
+  const markedDates = useMemo(() => {
+    const marks: any = {};
+
+    blockedDates.forEach((date) => {
+      marks[date] = {
+        disabled: true,
+        disableTouchEvent: true,
+        marked: true,
+        dotColor: "#EF4444",
+        customStyles: {
+          container: {
+            backgroundColor: "#FEE2E2",
+            borderRadius: 10,
+          },
+          text: {
+            color: "#991B1B",
+            fontWeight: "800",
+          },
+        },
+      };
+    });
+
+    if (pickupDate) {
+      const pickupKey = toCalendarDate(pickupDate);
+
+      marks[pickupKey] = {
+        ...(marks[pickupKey] || {}),
+        selected: true,
+        selectedColor: ORANGE,
+        selectedTextColor: "#FFFFFF",
+      };
+    }
+
+    if (returnDate) {
+      const returnKey = toCalendarDate(returnDate);
+
+      marks[returnKey] = {
+        ...(marks[returnKey] || {}),
+        selected: true,
+        selectedColor: "#FB923C",
+        selectedTextColor: "#FFFFFF",
+      };
+    }
+
+    return marks;
+  }, [blockedDates, pickupDate, returnDate]);
 
   const availablePoints = Number(user?.points_balance || 0);
 
@@ -358,7 +440,10 @@ export default function BookingFormScreen() {
               <Text style={styles.label}>Pickup Date</Text>
               <TouchableOpacity
                 style={styles.pickerButton}
-                onPress={() => setShowPickupDatePicker(true)}
+                onPress={() => {
+                  setCalendarMode("pickup");
+                  setShowCalendarModal(true);
+                }}
               >
                 <Text style={styles.pickerText}>{readableDate(pickupDate)}</Text>
                 <Ionicons name="calendar-outline" size={18} color={MUTED} />
@@ -369,7 +454,10 @@ export default function BookingFormScreen() {
               <Text style={styles.label}>Return Date</Text>
               <TouchableOpacity
                 style={styles.pickerButton}
-                onPress={() => setShowReturnDatePicker(true)}
+                onPress={() => {
+                  setCalendarMode("return");
+                  setShowCalendarModal(true);
+                }}
               >
                 <Text style={styles.pickerText}>{readableDate(returnDate)}</Text>
                 <Ionicons name="calendar-outline" size={18} color={MUTED} />
@@ -399,38 +487,71 @@ export default function BookingFormScreen() {
             </View>
           </View>
 
-          {showPickupDatePicker && (
-            <DateTimePicker
-              value={pickupDate || new Date()}
-              mode="date"
-              display={Platform.OS === "ios" ? "spinner" : "default"}
-              minimumDate={new Date()}
-              onChange={(event, selectedDate) => {
-                if (Platform.OS === "android") setShowPickupDatePicker(false);
+          <Modal
+            visible={showCalendarModal}
+            transparent
+            animationType="slide"
+            onRequestClose={() => setShowCalendarModal(false)}
+          >
+            <View style={styles.calendarOverlay}>
+              <View style={styles.calendarCard}>
+                <View style={styles.calendarHeader}>
+                  <Text style={styles.calendarTitle}>
+                    {calendarMode === "pickup" ? "Select Pickup Date" : "Select Return Date"}
+                  </Text>
 
-                if (selectedDate) {
-                  setPickupDate(selectedDate);
+                  <TouchableOpacity onPress={() => setShowCalendarModal(false)}>
+                    <Ionicons name="close" size={24} color={DARK} />
+                  </TouchableOpacity>
+                </View>
 
-                  if (returnDate && selectedDate >= returnDate) {
-                    setReturnDate(null);
-                  }
-                }
-              }}
-            />
-          )}
+                <Text style={styles.calendarHelp}>
+                  Red marked dates are already booked and cannot be selected.
+                </Text>
 
-          {showReturnDatePicker && (
-            <DateTimePicker
-              value={returnDate || pickupDate || new Date()}
-              mode="date"
-              display={Platform.OS === "ios" ? "spinner" : "default"}
-              minimumDate={pickupDate || new Date()}
-              onChange={(event, selectedDate) => {
-                if (Platform.OS === "android") setShowReturnDatePicker(false);
-                if (selectedDate) setReturnDate(selectedDate);
-              }}
-            />
-          )}
+                <Calendar
+                  markingType="custom"
+                  markedDates={markedDates}
+                  minDate={new Date().toISOString().split("T")[0]}
+                  onDayPress={(day) => {
+                    if (blockedDates.includes(day.dateString)) {
+                      Alert.alert("Unavailable", "This date is already booked.");
+                      return;
+                    }
+
+                    const selectedDate = parseCalendarDate(day.dateString);
+
+                    if (calendarMode === "pickup") {
+                      setPickupDate(selectedDate);
+
+                      if (returnDate && selectedDate >= returnDate) {
+                        setReturnDate(null);
+                      }
+                    } else {
+                      if (pickupDate && selectedDate < pickupDate) {
+                        Alert.alert("Invalid Date", "Return date must be after pickup date.");
+                        return;
+                      }
+
+                      setReturnDate(selectedDate);
+                    }
+
+                    setShowCalendarModal(false);
+                  }}
+                  theme={{
+                    todayTextColor: ORANGE,
+                    arrowColor: ORANGE,
+                    selectedDayBackgroundColor: ORANGE,
+                    selectedDayTextColor: "#FFFFFF",
+                    monthTextColor: DARK,
+                    textMonthFontWeight: "900",
+                    textDayFontWeight: "700",
+                    textDayHeaderFontWeight: "900",
+                  }}
+                />
+              </View>
+            </View>
+          </Modal>
 
           {showPickupTimePicker && (
             <DateTimePicker
@@ -1026,6 +1147,37 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 10,
+  },
+  calendarOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.45)",
+    justifyContent: "center",
+    padding: 20,
+  },
+  calendarCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: "#FED7AA",
+  },
+  calendarHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  calendarTitle: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: DARK,
+  },
+  calendarHelp: {
+    color: MUTED,
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 18,
+    marginBottom: 12,
   },
   modalOverlay: {
     flex: 1,

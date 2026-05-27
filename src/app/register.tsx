@@ -197,7 +197,7 @@ export default function RegisterScreen() {
                 <TextInput
                   value={name}
                   onChangeText={setName}
-                  placeholder="Fernando Sarana"
+                  placeholder="john doe"
                   placeholderTextColor="#94A3B8"
                   style={styles.input}
                   autoCapitalize="words"
